@@ -354,7 +354,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 14px;'>
-    🏭 ESTRA - Sistema Integrado de Análisis Energético con IA | Powered by OpenAI & LangChain
+    🏭 ESTRA - Sistema Integrado de Análisis Energético con IA | Powered by SUME & SOSPOL
     </div>
     """, 
     unsafe_allow_html=True
