@@ -101,12 +101,12 @@ with st.sidebar:
     
     # Configuración de OpenAI
     st.subheader("🤖 Configuración OpenAI")
-    openai_api_key = st.text_input(
-        "🔑 API Key de OpenAI:",
-        type="password",
-        help="Ingresa tu API key de OpenAI para usar el agente inteligente"
-    )
-    
+    #openai_api_key = st.text_input(
+    #    "🔑 API Key de OpenAI:",
+    #    type="password",
+    #    help="Ingresa tu API key de OpenAI para usar el agente inteligente"
+    #)
+    openai_api_key= st.secrets["settings"]["OPENAI_API_KEY"] 
     if openai_api_key:
         os.environ["OPENAI_API_KEY"] = openai_api_key
         st.success("✅ API Key configurada")
