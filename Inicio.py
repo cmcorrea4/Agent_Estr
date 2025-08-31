@@ -120,15 +120,15 @@ with st.sidebar:
         index=0
     )
     
-    temperature = st.slider(
-        "🌡️ Temperatura:",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.1,
-        step=0.1,
-        help="Controla la creatividad (0 = preciso, 1 = creativo)"
-    )
-    
+    #temperature = st.slider(
+    #    "🌡️ Temperatura:",
+    #    min_value=0.0,
+    #    max_value=1.0,
+    #    value=0.1,
+    #    step=0.1,
+    #    help="Controla la creatividad (0 = preciso, 1 = creativo)"
+    #)
+    temperature=0.1
     st.markdown("---")
     
     # Botón para obtener datos del endpoint
