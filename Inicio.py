@@ -265,7 +265,7 @@ else:
                 "¿En que fechas se trabajó el model 15252?",
                 "¿Cuál Molde tiene mayor SECn?",
                 "¿Qué periodo cubren los datos (fechas)?",
-                "Cuáles son las referencias con mayor porcentaje de tiempo de paro?"
+                "Cuáles son los mayores porcentaje de tiempo de paro y a que referencias corresponden?"
                 
             ]
             
