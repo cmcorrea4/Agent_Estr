@@ -262,13 +262,12 @@ else:
                 "¿Qué información contiene el dataset?",
                 "¿Cuáles son las columnas disponibles?",
                 "¿Hay valores faltantes en los datos?",
-                "Muestra un resumen de los datos numéricos",
-                "¿Cuál es el ID de molde (moldId)?",
-                "¿Cuánto es el tiempo de producción efectivo?",
+                "¿En que fechas se trabajó el model 15252?",
+                "¿Cuál Molde tiene mayor SECn?",
                 "¿Qué periodo cubren los datos (fechas)?",
-                "Calcula estadísticas del tiempo de producción",
-                "¿Cuál es la eficiencia basada en tiempos disponibles?",
-                "Crea un análisis de los datos temporales"
+                "Cuáles son las referencias con mayor porcentaje de tiempo de paro",
+                "¿Cuál es la eficiencia basada en tiempos disponibles?"
+                
             ]
             
             for i, example in enumerate(examples, 1):
