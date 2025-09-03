@@ -114,12 +114,12 @@ with st.sidebar:
         st.warning("⚠️ API Key requerida para el agente IA")
     
     # Configuración del modelo
-    model_name = st.selectbox(
-        "🤖 Modelo OpenAI:",
-        ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"],
-        index=0
-    )
-    
+   # model_name = st.selectbox(
+   #     "🤖 Modelo OpenAI:",
+   #     ["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo-preview"],
+   #     index=0
+   # )
+    model_name= "gpt-4"
     #temperature = st.slider(
     #    "🌡️ Temperatura:",
     #    min_value=0.0,
