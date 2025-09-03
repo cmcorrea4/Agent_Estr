@@ -261,7 +261,7 @@ else:
             examples = [
                 "¿Qué información contiene el dataset?",
                 "¿Cuáles son las columnas disponibles?",
-                "¿Hay valores faltantes en los datos?",
+                "¿Que Moldes tienen la mayor productividad efectiva?",
                 "¿En que fechas se trabajó el model 15252?",
                 "¿Cuál Molde tiene mayor SECn?",
                 "¿Qué periodo cubren los datos (fechas)?",
