@@ -65,21 +65,145 @@ def consultar_endpoint_cusum():
 
 # Función para convertir JSON a DataFrame
 def json_to_dataframe(json_data):
-    """Convierte los datos JSON del endpoint a un DataFrame de pandas"""
-    try:
-        if isinstance(json_data, dict):
-            # Si es un diccionario, convertir a DataFrame con una fila
-            df = pd.DataFrame([json_data])
-        elif isinstance(json_data, list):
-            # Si es una lista, convertir directamente
-            df = pd.DataFrame(json_data)
-        else:
-            # Si es otro tipo, intentar convertir
-            df = pd.DataFrame({'data': [json_data]})
+    """Convierte los datos JSON del endpoint a un DataFrame de pandas con múltiples estrategias"""
+    
+    def normalize_nested_data(data):
+        """Normaliza datos anidados recursivamente"""
+        if isinstance(data, dict):
+            flattened = {}
+            for key, value in data.items():
+                if isinstance(value, (dict, list)) and len(str(value)) > 100:
+                    # Si es muy largo, convertir a string
+                    flattened[key] = str(value)
+                elif isinstance(value, dict):
+                    # Aplanar diccionarios anidados
+                    for nested_key, nested_value in value.items():
+                        flattened[f"{key}_{nested_key}"] = nested_value
+                elif isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
+                    # Si es lista de diccionarios, tomar el primer elemento o convertir a string
+                    if len(value) == 1:
+                        for nested_key, nested_value in value[0].items():
+                            flattened[f"{key}_{nested_key}"] = nested_value
+                    else:
+                        flattened[key] = str(value)
+                else:
+                    flattened[key] = value
+            return flattened
+        return data
+    
+    def clean_dataframe(df):
+        """Limpia el DataFrame de tipos problemáticos"""
+        cleaned_df = df.copy()
         
-        return df, None
+        for col in cleaned_df.columns:
+            try:
+                # Convertir tipos problemáticos a string
+                if cleaned_df[col].dtype == 'object':
+                    # Verificar si contiene listas, dicts, etc.
+                    sample_value = cleaned_df[col].dropna().iloc[0] if not cleaned_df[col].dropna().empty else None
+                    if isinstance(sample_value, (list, dict, tuple)):
+                        cleaned_df[col] = cleaned_df[col].astype(str)
+                    else:
+                        # Intentar conversión a numérico si es posible
+                        numeric_series = pd.to_numeric(cleaned_df[col], errors='ignore')
+                        if not numeric_series.equals(cleaned_df[col]):
+                            cleaned_df[col] = numeric_series
+            except:
+                # Si hay cualquier error, convertir a string
+                cleaned_df[col] = cleaned_df[col].astype(str)
+        
+        return cleaned_df
+    
+    try:
+        df = None
+        parsing_method = ""
+        
+        # Estrategia 1: Lista de diccionarios (más común)
+        if isinstance(json_data, list) and len(json_data) > 0 and isinstance(json_data[0], dict):
+            try:
+                # Normalizar datos anidados
+                normalized_data = [normalize_nested_data(item) for item in json_data]
+                df = pd.DataFrame(normalized_data)
+                parsing_method = "Lista de diccionarios normalizados"
+            except:
+                df = pd.DataFrame(json_data)
+                parsing_method = "Lista de diccionarios directa"
+        
+        # Estrategia 2: Diccionario único
+        elif isinstance(json_data, dict):
+            # Verificar si el diccionario tiene una clave que contenga los datos principales
+            data_keys = ['data', 'results', 'items', 'records', 'rows']
+            main_data = None
+            
+            for key in data_keys:
+                if key in json_data and isinstance(json_data[key], list):
+                    main_data = json_data[key]
+                    parsing_method = f"Diccionario con clave '{key}'"
+                    break
+            
+            if main_data:
+                # Usar los datos de la clave principal
+                if len(main_data) > 0 and isinstance(main_data[0], dict):
+                    normalized_data = [normalize_nested_data(item) for item in main_data]
+                    df = pd.DataFrame(normalized_data)
+                else:
+                    df = pd.DataFrame(main_data)
+            else:
+                # Normalizar el diccionario completo
+                normalized_dict = normalize_nested_data(json_data)
+                df = pd.DataFrame([normalized_dict])
+                parsing_method = "Diccionario único normalizado"
+        
+        # Estrategia 3: Lista simple
+        elif isinstance(json_data, list):
+            df = pd.DataFrame({'values': json_data})
+            parsing_method = "Lista simple"
+        
+        # Estrategia 4: Otros tipos
+        else:
+            df = pd.DataFrame({'data': [json_data]})
+            parsing_method = "Datos como valor único"
+        
+        # Limpiar el DataFrame resultante
+        if df is not None:
+            df = clean_dataframe(df)
+            
+            # Verificar si el DataFrame está vacío
+            if df.empty:
+                df = pd.DataFrame({'raw_data': [str(json_data)]})
+                parsing_method = "Fallback a datos raw"
+            
+            # Información adicional sobre el parsing
+            parsing_info = {
+                'method': parsing_method,
+                'original_type': type(json_data).__name__,
+                'rows': len(df),
+                'columns': len(df.columns),
+                'data_sample': str(json_data)[:200] + "..." if len(str(json_data)) > 200 else str(json_data)
+            }
+            
+            return df, None, parsing_info
+        else:
+            return None, "No se pudo parsear el JSON con ninguna estrategia", None
+            
     except Exception as e:
-        return None, f"Error convirtiendo JSON a DataFrame: {str(e)}"
+        # Último recurso: crear DataFrame con datos raw
+        try:
+            fallback_df = pd.DataFrame({
+                'raw_json': [str(json_data)],
+                'json_type': [type(json_data).__name__],
+                'json_length': [len(str(json_data))]
+            })
+            parsing_info = {
+                'method': 'Fallback completo',
+                'original_type': type(json_data).__name__,
+                'rows': 1,
+                'columns': 3,
+                'error': str(e)
+            }
+            return fallback_df, None, parsing_info
+        except:
+            return None, f"Error crítico convirtiendo JSON: {str(e)}", None
 
 # Función para mostrar información básica del DataFrame
 def mostrar_info_dataframe(df):
@@ -129,14 +253,27 @@ with st.sidebar:
             if datos_json is not None:
                 st.success("✅ Datos CUSUM obtenidos")
                 
-                # Convertir JSON a DataFrame
-                df_cusum, error_df = json_to_dataframe(datos_json)
+                # Convertir JSON a DataFrame con la nueva función
+                result = json_to_dataframe(datos_json)
+                
+                if len(result) == 3:  # Nueva función con parsing_info
+                    df_cusum, error_df, parsing_info = result
+                else:  # Función antigua sin parsing_info
+                    df_cusum, error_df = result
+                    parsing_info = None
                 
                 if df_cusum is not None:
                     st.success("✅ DataFrame creado exitosamente")
+                    
+                    # Mostrar información del parsing si está disponible
+                    if parsing_info:
+                        with st.expander("🔍 Información del Parsing"):
+                            st.json(parsing_info)
+                    
                     # Guardar en session state
                     st.session_state.df_cusum = df_cusum
                     st.session_state.datos_json_cusum = datos_json
+                    st.session_state.parsing_info = parsing_info
                     st.rerun()
                 else:
                     st.error(f"❌ Error creando DataFrame: {error_df}")
@@ -180,6 +317,18 @@ else:
     # Mostrar información básica del DataFrame
     st.header("📊 Información del Dataset CUSUM")
     mostrar_info_dataframe(df_cusum)
+    
+    # Mostrar información del parsing si está disponible
+    if "parsing_info" in st.session_state and st.session_state.parsing_info:
+        with st.expander("🔍 Método de Parsing Utilizado"):
+            parsing_info = st.session_state.parsing_info
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("📋 Método", parsing_info.get('method', 'N/A'))
+            with col2:
+                st.metric("🏷️ Tipo Original", parsing_info.get('original_type', 'N/A'))
+            with col3:
+                st.metric("📊 Filas Procesadas", parsing_info.get('rows', 'N/A'))
     
     # Tabs para diferentes vistas de los datos
     tab1, tab2, tab3, tab4 = st.tabs(["📋 Datos", "📈 Información", "🔍 Estadísticas", "🗂️ JSON Original"])
