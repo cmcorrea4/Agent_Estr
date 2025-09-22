@@ -91,9 +91,17 @@ def mostrar_info_dataframe(df):
     with col2:
         st.metric("📊 Columnas", df.shape[1])
     with col3:
-        st.metric("💾 Tamaño (KB)", f"{df.memory_usage(deep=True).sum() / 1024:.1f}")
+        try:
+            memory_usage = df.memory_usage(deep=True).sum() / 1024
+            st.metric("💾 Tamaño (KB)", f"{memory_usage:.1f}")
+        except:
+            st.metric("💾 Tamaño (KB)", "N/A")
     with col4:
-        st.metric("🔢 Valores No Nulos", df.count().sum())
+        try:
+            non_null_count = df.count().sum()
+            st.metric("🔢 Valores No Nulos", non_null_count)
+        except:
+            st.metric("🔢 Valores No Nulos", "N/A")
 
 # Sidebar para configuración
 with st.sidebar:
@@ -183,34 +191,55 @@ else:
     with tab2:
         st.subheader("Información del Dataset")
         if not df_cusum.empty:
-            info_df = pd.DataFrame({
-                'Columna': df_cusum.columns,
-                'Tipo': df_cusum.dtypes.astype(str),
-                'No Nulos': df_cusum.count(),
-                'Nulos': df_cusum.isnull().sum(),
-                '% Nulos': (df_cusum.isnull().sum() / len(df_cusum) * 100).round(2)
-            })
-            st.dataframe(info_df, use_container_width=True)
+            try:
+                info_df = pd.DataFrame({
+                    'Columna': df_cusum.columns,
+                    'Tipo': df_cusum.dtypes.astype(str),
+                    'No Nulos': df_cusum.count(),
+                    'Nulos': df_cusum.isnull().sum(),
+                    '% Nulos': (df_cusum.isnull().sum() / len(df_cusum) * 100).round(2)
+                })
+                st.dataframe(info_df, use_container_width=True)
+            except Exception as e:
+                st.error(f"Error mostrando información del dataset: {str(e)}")
+                # Mostrar información básica como alternativa
+                st.write(f"**Columnas:** {list(df_cusum.columns)}")
+                st.write(f"**Tipos de datos:** {dict(df_cusum.dtypes.astype(str))}")
         else:
             st.warning("DataFrame vacío")
     
     with tab3:
         st.subheader("Estadísticas Descriptivas")
-        numeric_df = df_cusum.select_dtypes(include=['number'])
-        if not numeric_df.empty:
-            st.dataframe(numeric_df.describe(), use_container_width=True)
-        else:
-            st.info("No hay columnas numéricas para estadísticas descriptivas.")
-            st.write("**Resumen de columnas de texto:**")
-            text_df = df_cusum.select_dtypes(include=['object'])
+        try:
+            numeric_df = df_cusum.select_dtypes(include=['number'])
+            if not numeric_df.empty:
+                st.dataframe(numeric_df.describe(), use_container_width=True)
+            else:
+                st.info("No hay columnas numéricas para estadísticas descriptivas.")
+                
+            st.write("**Resumen de columnas:**")
+            text_df = df_cusum.select_dtypes(include=['object', 'string'])
             if not text_df.empty:
                 for col in text_df.columns:
-                    unique_vals = df_cusum[col].nunique()
-                    st.write(f"• **{col}**: {unique_vals} valores únicos")
+                    try:
+                        unique_vals = df_cusum[col].nunique()
+                        st.write(f"• **{col}**: {unique_vals} valores únicos")
+                    except Exception as e:
+                        st.write(f"• **{col}**: Error calculando valores únicos - {str(e)[:50]}")
+        except Exception as e:
+            st.error(f"Error en estadísticas: {str(e)}")
+            st.write("**Información básica disponible:**")
+            st.write(f"- Forma del DataFrame: {df_cusum.shape}")
+            st.write(f"- Columnas: {list(df_cusum.columns)}")
     
     with tab4:
         st.subheader("Datos JSON Originales")
-        st.json(datos_json_cusum)
+        try:
+            st.json(datos_json_cusum)
+        except Exception as e:
+            st.error(f"Error mostrando JSON: {str(e)}")
+            st.text("Contenido del JSON (como texto):")
+            st.text(str(datos_json_cusum))
     
     # Agente de Análisis IA
     st.header("🤖 Agente de Análisis IA")
