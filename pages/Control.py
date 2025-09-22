@@ -13,13 +13,13 @@ warnings.filterwarnings('ignore')
 
 # Configuración de la página
 st.set_page_config(
-    page_title="ESTRA CUSUM - Análisis con IA",
+    page_title="Control - Análisis con IA",
     page_icon="📊",
     layout="wide"
 )
 
 # Título principal
-st.title("📊 ESTRA CUSUM - Análisis con IA")
+st.title("📊 Control - Análisis con IA")
 st.markdown("**Obtén datos CUSUM y analízalos con IA avanzada**")
 
 # Función para consultar el endpoint CUSUM
@@ -450,7 +450,7 @@ def crear_grafico_cusum(df):
                 st.success("✅ **Interpretación**: Tendencia estable. El proceso parece estar bajo control.")
         
         # Análisis de control de calidad
-        st.subheader("🎯 Análisis de Control de Calidad")
+        st.subheader("🎯 Límites de Control")
         
         # Puntos fuera de límites (usando regla simple)
         limite_superior = cusum_values.mean() + 2 * cusum_values.std()
@@ -475,9 +475,9 @@ def crear_grafico_cusum(df):
             fuera_control = valid_data[(cusum_values > limite_superior) | (cusum_values < limite_inferior)]
             
             if date_columns:
-                st.dataframe(fuera_control[[date_col, 'cusumkWh']].round(2))
+                st.dataframe(fuera_control[[date_col, 'cusumkWh']].round(2), use_container_width=True)
             else:
-                st.dataframe(fuera_control[['cusumkWh']].round(2))
+                st.dataframe(fuera_control[['cusumkWh']].round(2), use_container_width=True)
     
     except Exception as e:
         st.error(f"❌ Error creando gráfico CUSUM: {str(e)}")
@@ -600,18 +600,6 @@ else:
     
     # Crear gráfico CUSUM
     crear_grafico_cusum(df_cusum)
-    
-    # Mostrar información del parsing si está disponible
-    if "parsing_info" in st.session_state and st.session_state.parsing_info:
-        with st.expander("🔍 Método de Parsing Utilizado"):
-            parsing_info = st.session_state.parsing_info
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("📋 Método", parsing_info.get('method', 'N/A'))
-            with col2:
-                st.metric("🏷️ Tipo Original", parsing_info.get('original_type', 'N/A'))
-            with col3:
-                st.metric("📊 Filas Procesadas", parsing_info.get('rows', 'N/A'))
     
     # Tabs para diferentes vistas de los datos
     tab1, tab2, tab3, tab4 = st.tabs(["📋 Datos", "📈 Información", "🔍 Estadísticas", "🗂️ JSON Original"])
@@ -796,7 +784,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 14px;'>
-    📊 ESTRA CUSUM - Sistema de Análisis de Control de Calidad con IA | Powered by SUME & SOSPOL
+    📊 Control - Sistema de Análisis de Control de Calidad con IA | Powered by SUME & SOSPOL
     </div>
     """, 
     unsafe_allow_html=True
