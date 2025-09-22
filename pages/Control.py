@@ -5,8 +5,6 @@ import requests
 import json
 import base64
 import os
-import plotly.express as px
-import plotly.graph_objects as go
 from langchain.agents.agent_types import AgentType
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_openai import ChatOpenAI
@@ -335,7 +333,7 @@ def mostrar_metricas_cusum(df):
 
 # Función para crear gráfico CUSUM
 def crear_grafico_cusum(df):
-    """Crea un gráfico de la columna cusumkWh"""
+    """Crea un gráfico de la columna cusumkWh usando herramientas estándar de Streamlit"""
     st.header("📈 Gráfico CUSUM kWh")
     
     # Verificar si existe la columna cusumkWh
@@ -368,105 +366,18 @@ def crear_grafico_cusum(df):
             # Ordenar por fecha
             valid_data = valid_data.sort_values(date_col)
             
-            # Crear el gráfico con Plotly
-            fig = go.Figure()
+            # Crear el gráfico con Streamlit
+            st.subheader("Control Chart CUSUM - Consumo de Energía")
             
-            # Línea principal
-            fig.add_trace(go.Scatter(
-                x=valid_data[date_col],
-                y=valid_data['cusumkWh'],
-                mode='lines+markers',
-                name='CUSUM kWh',
-                line=dict(color='#1f77b4', width=3),
-                marker=dict(size=8, color='#1f77b4'),
-                hovertemplate='<b>Fecha:</b> %{x}<br><b>CUSUM kWh:</b> %{y:.2f}<extra></extra>'
-            ))
+            # Preparar datos para el gráfico
+            chart_data = valid_data.set_index(date_col)[['cusumkWh']].copy()
             
-            # Línea de referencia en 0
-            fig.add_hline(
-                y=0, 
-                line_dash="dash", 
-                line_color="red",
-                annotation_text="Línea de Control (0)",
-                annotation_position="bottom right"
-            )
+            # Usar st.line_chart para el gráfico principal
+            st.line_chart(chart_data, height=400)
             
-            # Personalizar el layout
-            fig.update_layout(
-                title=dict(
-                    text='Control Chart CUSUM - Consumo de Energía',
-                    x=0.5,
-                    font=dict(size=18, color='#2c3e50')
-                ),
-                xaxis_title='Fecha',
-                yaxis_title='CUSUM kWh',
-                height=500,
-                hovermode='x unified',
-                plot_bgcolor='white',
-                paper_bgcolor='white',
-                font=dict(color='#2c3e50'),
-                xaxis=dict(
-                    showgrid=True,
-                    gridwidth=1,
-                    gridcolor='#ecf0f1',
-                    showline=True,
-                    linewidth=1,
-                    linecolor='#bdc3c7'
-                ),
-                yaxis=dict(
-                    showgrid=True,
-                    gridwidth=1,
-                    gridcolor='#ecf0f1',
-                    showline=True,
-                    linewidth=1,
-                    linecolor='#bdc3c7',
-                    zeroline=True,
-                    zerolinewidth=2,
-                    zerolinecolor='red'
-                )
-            )
+            # Mostrar información adicional
+            st.info(f"📊 **Información del gráfico**: {len(valid_data)} puntos de datos desde {valid_data[date_col].min().strftime('%Y-%m-%d')} hasta {valid_data[date_col].max().strftime('%Y-%m-%d')}")
             
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # Mostrar estadísticas del gráfico
-            col1, col2, col3, col4 = st.columns(4)
-            
-            cusum_values = valid_data['cusumkWh']
-            
-            with col1:
-                st.metric("📊 Promedio", f"{cusum_values.mean():.2f}")
-            with col2:
-                st.metric("📏 Desv. Estándar", f"{cusum_values.std():.2f}")
-            with col3:
-                st.metric("⬆️ Máximo", f"{cusum_values.max():.2f}")
-            with col4:
-                st.metric("⬇️ Mínimo", f"{cusum_values.min():.2f}")
-            
-            # Análisis de tendencia
-            st.subheader("🔍 Análisis de Tendencia")
-            
-            # Calcular tendencia
-            if len(cusum_values) > 1:
-                from scipy import stats
-                x_numeric = range(len(cusum_values))
-                slope, intercept, r_value, p_value, std_err = stats.linregress(x_numeric, cusum_values)
-                
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("📈 Tendencia (slope)", f"{slope:.4f}")
-                with col2:
-                    st.metric("📊 R² (correlación)", f"{r_value**2:.4f}")
-                with col3:
-                    tendencia_text = "↗️ Creciente" if slope > 0 else "↘️ Decreciente" if slope < 0 else "➡️ Estable"
-                    st.metric("🎯 Dirección", tendencia_text)
-                
-                # Interpretación
-                if slope > 0.1:
-                    st.success("✅ **Interpretación**: Tendencia creciente significativa. El proceso puede estar fuera de control.")
-                elif slope < -0.1:
-                    st.success("✅ **Interpretación**: Tendencia decreciente significativa. El proceso puede estar mejorando o fuera de control.")
-                else:
-                    st.info("ℹ️ **Interpretación**: Tendencia estable. El proceso parece estar bajo control.")
         else:
             # Si no hay columna de fecha, usar índice
             valid_data = cusum_data.dropna(subset=['cusumkWh'])
@@ -475,26 +386,98 @@ def crear_grafico_cusum(df):
                 st.warning("⚠️ No hay datos válidos para graficar")
                 return
             
-            fig = go.Figure()
+            st.subheader("Control Chart CUSUM - Consumo de Energía")
             
-            fig.add_trace(go.Scatter(
-                y=valid_data['cusumkWh'],
-                mode='lines+markers',
-                name='CUSUM kWh',
-                line=dict(color='#1f77b4', width=3),
-                marker=dict(size=8)
-            ))
+            # Crear DataFrame con índice para el gráfico
+            chart_data = pd.DataFrame({
+                'CUSUM kWh': valid_data['cusumkWh'].values
+            })
             
-            fig.add_hline(y=0, line_dash="dash", line_color="red")
+            # Usar st.line_chart
+            st.line_chart(chart_data, height=400)
+        
+        # Mostrar estadísticas del gráfico
+        st.subheader("📊 Estadísticas del CUSUM")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        cusum_values = valid_data['cusumkWh']
+        
+        with col1:
+            st.metric("📊 Promedio", f"{cusum_values.mean():.2f}")
+        with col2:
+            st.metric("📏 Desv. Estándar", f"{cusum_values.std():.2f}")
+        with col3:
+            st.metric("⬆️ Máximo", f"{cusum_values.max():.2f}")
+        with col4:
+            st.metric("⬇️ Mínimo", f"{cusum_values.min():.2f}")
+        
+        # Análisis de tendencia
+        st.subheader("🔍 Análisis de Tendencia")
+        
+        # Calcular tendencia simple
+        if len(cusum_values) > 1:
+            # Calcular diferencias para ver la tendencia
+            diferencias = cusum_values.diff().dropna()
+            tendencia_promedio = diferencias.mean()
             
-            fig.update_layout(
-                title='Control Chart CUSUM - Consumo de Energía',
-                xaxis_title='Período',
-                yaxis_title='CUSUM kWh',
-                height=500
-            )
+            # Calcular correlación con el tiempo (aproximada)
+            x_numeric = np.arange(len(cusum_values))
+            correlation = np.corrcoef(x_numeric, cusum_values)[0, 1]
             
-            st.plotly_chart(fig, use_container_width=True)
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("📈 Tendencia Promedio", f"{tendencia_promedio:.4f}")
+            with col2:
+                st.metric("📊 Correlación Temporal", f"{correlation:.4f}")
+            with col3:
+                if tendencia_promedio > 0.1:
+                    tendencia_text = "↗️ Creciente"
+                    color = "normal"
+                elif tendencia_promedio < -0.1:
+                    tendencia_text = "↘️ Decreciente"
+                    color = "normal"
+                else:
+                    tendencia_text = "➡️ Estable"
+                    color = "normal"
+                st.metric("🎯 Dirección", tendencia_text)
+            
+            # Interpretación
+            if tendencia_promedio > 0.1:
+                st.warning("⚠️ **Interpretación**: Tendencia creciente significativa. El proceso puede estar fuera de control.")
+            elif tendencia_promedio < -0.1:
+                st.warning("⚠️ **Interpretación**: Tendencia decreciente significativa. El proceso puede estar mejorando o fuera de control.")
+            else:
+                st.success("✅ **Interpretación**: Tendencia estable. El proceso parece estar bajo control.")
+        
+        # Análisis de control de calidad
+        st.subheader("🎯 Análisis de Control de Calidad")
+        
+        # Puntos fuera de límites (usando regla simple)
+        limite_superior = cusum_values.mean() + 2 * cusum_values.std()
+        limite_inferior = cusum_values.mean() - 2 * cusum_values.std()
+        
+        puntos_fuera_control = ((cusum_values > limite_superior) | (cusum_values < limite_inferior)).sum()
+        porcentaje_control = ((len(cusum_values) - puntos_fuera_control) / len(cusum_values)) * 100
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("🔴 Límite Superior", f"{limite_superior:.2f}")
+        with col2:
+            st.metric("🔵 Límite Inferior", f"{limite_inferior:.2f}")
+        with col3:
+            st.metric("⚠️ Puntos Fuera Control", puntos_fuera_control)
+        with col4:
+            st.metric("✅ % En Control", f"{porcentaje_control:.1f}%")
+        
+        # Mostrar tabla de valores fuera de control si existen
+        if puntos_fuera_control > 0:
+            st.subheader("🚨 Valores Fuera de Control")
+            fuera_control = valid_data[(cusum_values > limite_superior) | (cusum_values < limite_inferior)]
+            
+            if date_columns:
+                st.dataframe(fuera_control[[date_col, 'cusumkWh']].round(2))
+            else:
+                st.dataframe(fuera_control[['cusumkWh']].round(2))
     
     except Exception as e:
         st.error(f"❌ Error creando gráfico CUSUM: {str(e)}")
