@@ -65,26 +65,67 @@ def consultar_endpoint_cusum():
 
 # Función para convertir JSON a DataFrame
 def json_to_dataframe(json_data):
-    """Convierte los datos JSON del endpoint a un DataFrame de pandas con múltiples estrategias"""
+    """Convierte los datos JSON del endpoint a un DataFrame de pandas con parsing especializado para CUSUM"""
+    
+    def parse_cusum_column(df):
+        """Parsea específicamente la columna CUSUM que contiene listas de diccionarios"""
+        cusum_rows = []
+        base_columns = [col for col in df.columns if col != 'cusum']
+        
+        for idx, row in df.iterrows():
+            base_data = {col: row[col] for col in base_columns}
+            
+            if 'cusum' in row and row['cusum'] is not None:
+                try:
+                    # Si cusum es string, intentar parsearlo como JSON
+                    if isinstance(row['cusum'], str):
+                        import ast
+                        cusum_data = ast.literal_eval(row['cusum'])
+                    else:
+                        cusum_data = row['cusum']
+                    
+                    # Si cusum_data es una lista de diccionarios
+                    if isinstance(cusum_data, list) and len(cusum_data) > 0:
+                        for cusum_item in cusum_data:
+                            if isinstance(cusum_item, dict):
+                                # Combinar datos base con datos de cusum
+                                combined_row = base_data.copy()
+                                combined_row.update(cusum_item)
+                                cusum_rows.append(combined_row)
+                    else:
+                        # Si no es lista, mantener el registro original
+                        base_data['cusum_raw'] = str(cusum_data)
+                        cusum_rows.append(base_data)
+                        
+                except Exception as e:
+                    # En caso de error, mantener datos originales
+                    base_data['cusum_raw'] = str(row['cusum'])
+                    base_data['cusum_parse_error'] = str(e)
+                    cusum_rows.append(base_data)
+            else:
+                cusum_rows.append(base_data)
+        
+        return pd.DataFrame(cusum_rows) if cusum_rows else df
     
     def normalize_nested_data(data):
         """Normaliza datos anidados recursivamente"""
         if isinstance(data, dict):
             flattened = {}
             for key, value in data.items():
-                if isinstance(value, (dict, list)) and len(str(value)) > 100:
+                if isinstance(value, (dict, list)) and len(str(value)) > 500:
                     # Si es muy largo, convertir a string
                     flattened[key] = str(value)
                 elif isinstance(value, dict):
                     # Aplanar diccionarios anidados
                     for nested_key, nested_value in value.items():
                         flattened[f"{key}_{nested_key}"] = nested_value
-                elif isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
-                    # Si es lista de diccionarios, tomar el primer elemento o convertir a string
-                    if len(value) == 1:
-                        for nested_key, nested_value in value[0].items():
-                            flattened[f"{key}_{nested_key}"] = nested_value
+                elif isinstance(value, list) and len(value) > 0:
+                    # Manejar listas especiales
+                    if isinstance(value[0], dict):
+                        # Lista de diccionarios - será procesada por parse_cusum_column
+                        flattened[key] = value
                     else:
+                        # Lista simple
                         flattened[key] = str(value)
                 else:
                     flattened[key] = value
@@ -95,22 +136,34 @@ def json_to_dataframe(json_data):
         """Limpia el DataFrame de tipos problemáticos"""
         cleaned_df = df.copy()
         
+        # Convertir columnas de fecha si existen
+        date_columns = ['date', 'timestamp', 'created_at', 'updated_at']
+        for col in cleaned_df.columns:
+            if any(date_col in col.lower() for date_col in date_columns):
+                try:
+                    cleaned_df[col] = pd.to_datetime(cleaned_df[col], errors='ignore')
+                except:
+                    pass
+        
+        # Limpiar otros tipos problemáticos
         for col in cleaned_df.columns:
             try:
-                # Convertir tipos problemáticos a string
                 if cleaned_df[col].dtype == 'object':
                     # Verificar si contiene listas, dicts, etc.
-                    sample_value = cleaned_df[col].dropna().iloc[0] if not cleaned_df[col].dropna().empty else None
-                    if isinstance(sample_value, (list, dict, tuple)):
-                        cleaned_df[col] = cleaned_df[col].astype(str)
-                    else:
-                        # Intentar conversión a numérico si es posible
-                        numeric_series = pd.to_numeric(cleaned_df[col], errors='ignore')
-                        if not numeric_series.equals(cleaned_df[col]):
-                            cleaned_df[col] = numeric_series
+                    sample_values = cleaned_df[col].dropna().head(3)
+                    if not sample_values.empty:
+                        sample_value = sample_values.iloc[0]
+                        if isinstance(sample_value, (list, dict, tuple)) and col != 'cusum':
+                            cleaned_df[col] = cleaned_df[col].astype(str)
+                        else:
+                            # Intentar conversión a numérico si es posible
+                            numeric_series = pd.to_numeric(cleaned_df[col], errors='ignore')
+                            if not numeric_series.equals(cleaned_df[col]):
+                                cleaned_df[col] = numeric_series
             except:
                 # Si hay cualquier error, convertir a string
-                cleaned_df[col] = cleaned_df[col].astype(str)
+                if col != 'cusum':  # No convertir cusum todavía
+                    cleaned_df[col] = cleaned_df[col].astype(str)
         
         return cleaned_df
     
@@ -164,6 +217,17 @@ def json_to_dataframe(json_data):
             df = pd.DataFrame({'data': [json_data]})
             parsing_method = "Datos como valor único"
         
+        # Procesamiento especializado para datos CUSUM
+        if df is not None and 'cusum' in df.columns:
+            try:
+                df_expanded = parse_cusum_column(df)
+                if len(df_expanded) > len(df):
+                    df = df_expanded
+                    parsing_method += " + Expansión CUSUM"
+            except Exception as e:
+                # Si falla la expansión, mantener DataFrame original
+                parsing_method += f" (Error expansión CUSUM: {str(e)[:50]})"
+        
         # Limpiar el DataFrame resultante
         if df is not None:
             df = clean_dataframe(df)
@@ -179,7 +243,10 @@ def json_to_dataframe(json_data):
                 'original_type': type(json_data).__name__,
                 'rows': len(df),
                 'columns': len(df.columns),
-                'data_sample': str(json_data)[:200] + "..." if len(str(json_data)) > 200 else str(json_data)
+                'column_names': list(df.columns),
+                'has_cusum_data': 'cusum' in str(json_data).lower(),
+                'cusum_expanded': 'Expansión CUSUM' in parsing_method,
+                'data_sample': str(json_data)[:300] + "..." if len(str(json_data)) > 300 else str(json_data)
             }
             
             return df, None, parsing_info
