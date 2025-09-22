@@ -449,35 +449,21 @@ def crear_grafico_cusum(df):
             else:
                 st.success("✅ **Interpretación**: Tendencia estable. El proceso parece estar bajo control.")
         
-        # Análisis de control de calidad
-        st.subheader("🎯 Límites de Control")
-        
-        # Puntos fuera de límites (usando regla simple)
-        limite_superior = cusum_values.mean() + 2 * cusum_values.std()
-        limite_inferior = cusum_values.mean() - 2 * cusum_values.std()
-        
-        puntos_fuera_control = ((cusum_values > limite_superior) | (cusum_values < limite_inferior)).sum()
-        porcentaje_control = ((len(cusum_values) - puntos_fuera_control) / len(cusum_values)) * 100
-        
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric("🔴 Límite Superior", f"{limite_superior:.2f}")
-        with col2:
-            st.metric("🔵 Límite Inferior", f"{limite_inferior:.2f}")
-        with col3:
-            st.metric("⚠️ Puntos Fuera Control", puntos_fuera_control)
-        with col4:
-            st.metric("✅ % En Control", f"{porcentaje_control:.1f}%")
-        
         # Mostrar tabla de valores fuera de control si existen
-        if puntos_fuera_control > 0:
-            st.subheader("🚨 Valores Fuera de Control")
-            fuera_control = valid_data[(cusum_values > limite_superior) | (cusum_values < limite_inferior)]
+        if len(cusum_values) > 1:
+            # Calcular límites para detectar valores fuera de control
+            limite_superior = cusum_values.mean() + 2 * cusum_values.std()
+            limite_inferior = cusum_values.mean() - 2 * cusum_values.std()
+            puntos_fuera_control = ((cusum_values > limite_superior) | (cusum_values < limite_inferior)).sum()
             
-            if date_columns:
-                st.dataframe(fuera_control[[date_col, 'cusumkWh']].round(2), use_container_width=True)
-            else:
-                st.dataframe(fuera_control[['cusumkWh']].round(2), use_container_width=True)
+            if puntos_fuera_control > 0:
+                st.subheader("🚨 Valores Fuera de Control")
+                fuera_control = valid_data[(cusum_values > limite_superior) | (cusum_values < limite_inferior)]
+                
+                if date_columns:
+                    st.dataframe(fuera_control[[date_col, 'cusumkWh']].round(2), use_container_width=True)
+                else:
+                    st.dataframe(fuera_control[['cusumkWh']].round(2), use_container_width=True)
     
     except Exception as e:
         st.error(f"❌ Error creando gráfico CUSUM: {str(e)}")
