@@ -119,40 +119,20 @@ with st.sidebar:
     else:
         st.warning("⚠️ Ingresa usuario y contraseña del endpoint")
     
-    st.markdown("---")
-    
-    # Configuración de OpenAI - Obtener de secrets
-    st.subheader("🤖 Configuración OpenAI")
-    
+    # Configuración de OpenAI - Obtener de secrets (oculto)
     # Intentar obtener la API key desde secrets
     try:
         openai_api_key = st.secrets["settings"]["OPENAI_API_KEY"]
         if openai_api_key:
             os.environ["OPENAI_API_KEY"] = openai_api_key
-            st.success("✅ API Key configurada desde secrets")
         else:
-            st.error("❌ API Key vacía en secrets")
             openai_api_key = None
     except Exception as e:
-        st.error(f"❌ Error obteniendo API Key: {str(e)}")
-        st.info("💡 Asegúrate de tener configurado OPENAI_API_KEY en secrets.toml")
         openai_api_key = None
     
-    # Configuración del modelo
-    model_name = st.selectbox(
-        "🤖 Modelo OpenAI:",
-        ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo-preview"],
-        index=0
-    )
-    
-    temperature = st.slider(
-        "🌡️ Temperatura:",
-        min_value=0.0,
-        max_value=1.0,
-        value=0.1,
-        step=0.1,
-        help="Controla la creatividad (0 = preciso, 1 = creativo)"
-    )
+    # Configuración del modelo (fija, sin mostrar)
+    model_name = "gpt-4"
+    temperature = 0.1
     
     st.markdown("---")
     
