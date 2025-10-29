@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # Título principal
-st.title("📊 Control - Gestión energética ESTRA")
+st.title("📊 Control de gestión energética --ESTRA")
 st.markdown("**Obtén datos CUSUM y analízalos con IA avanzada**")
 
 # Función para consultar el endpoint CUSUM
