@@ -98,26 +98,34 @@ with st.sidebar:
     # Configuración del Endpoint API
     st.subheader("🔌 Configuración del Endpoint")
     
-    api_username = st.text_input(
-        "👤 Usuario del Endpoint:",
-        placeholder="Ingresa tu usuario",
-        help="Usuario para autenticación del endpoint de energía"
-    )
-    
-    api_password = st.text_input(
-        "🔒 Contraseña del Endpoint:",
-        type="password",
-        placeholder="Ingresa tu contraseña",
-        help="Contraseña para autenticación del endpoint"
-    )
-    
-    # Validar que todos los campos estén completos
-    endpoint_configured = bool(api_username and api_password)
-    
-    if endpoint_configured:
-        st.success("✅ Credenciales del endpoint configuradas")
+    # Solo mostrar campos si no hay datos cargados
+    if "df_energia" not in st.session_state:
+        api_username = st.text_input(
+            "👤 Usuario del Endpoint:",
+            placeholder="Ingresa tu usuario",
+            help="Usuario para autenticación del endpoint de energía"
+        )
+        
+        api_password = st.text_input(
+            "🔒 Contraseña del Endpoint:",
+            type="password",
+            placeholder="Ingresa tu contraseña",
+            help="Contraseña para autenticación del endpoint"
+        )
+        
+        # Validar que todos los campos estén completos
+        endpoint_configured = bool(api_username and api_password)
+        
+        if endpoint_configured:
+            st.success("✅ Credenciales del endpoint configuradas")
+        else:
+            st.warning("⚠️ Ingresa usuario y contraseña del endpoint")
     else:
-        st.warning("⚠️ Ingresa usuario y contraseña del endpoint")
+        # Si ya hay datos cargados, usar las credenciales guardadas
+        api_username = st.session_state.get('api_username', '')
+        api_password = st.session_state.get('api_password', '')
+        endpoint_configured = True
+        st.success("✅ Sesión activa")
     
     # Configuración de OpenAI - Obtener de secrets (oculto)
     # Intentar obtener la API key desde secrets
@@ -152,6 +160,9 @@ with st.sidebar:
                     # Guardar en session state
                     st.session_state.df_energia = df_energia
                     st.session_state.datos_json = datos_json
+                    # Guardar credenciales para no pedirlas de nuevo
+                    st.session_state.api_username = api_username
+                    st.session_state.api_password = api_password
                     st.rerun()
                 else:
                     st.error(f"❌ Error creando DataFrame: {error_df}")
@@ -350,6 +361,10 @@ else:
             del st.session_state.datos_json
         if "chat_history_energia" in st.session_state:
             st.session_state.chat_history_energia = []
+        if "api_username" in st.session_state:
+            del st.session_state.api_username
+        if "api_password" in st.session_state:
+            del st.session_state.api_password
         st.rerun()
 
 # Footer
