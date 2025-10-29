@@ -19,7 +19,7 @@ st.set_page_config(
 )
 
 # Título principal
-st.title("🏭 ESTRA - Análisis Inteligente de Datos Energéticos")
+st.title("🏭 Diagnóstico de gestión energética--ESTRA")
 st.markdown("**Obtén datos del sistema energético y analízalos con IA avanzada**")
 
 # Función para consultar el endpoint de energía
