@@ -13,7 +13,7 @@ warnings.filterwarnings('ignore')
 
 # Configuración de la página
 st.set_page_config(
-    page_title="ESTRA - Análisis Energético con IA",
+    page_title="Diagnóstico de gestión energética--ESTRA",
     page_icon="🏭",
     layout="wide"
 )
