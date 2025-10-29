@@ -100,14 +100,12 @@ with st.sidebar:
     
     api_username = st.text_input(
         "👤 Usuario del Endpoint:",
-        value="",
         placeholder="Ingresa tu usuario",
         help="Usuario para autenticación del endpoint de energía"
     )
     
     api_password = st.text_input(
         "🔒 Contraseña del Endpoint:",
-        value="",
         type="password",
         placeholder="Ingresa tu contraseña",
         help="Contraseña para autenticación del endpoint"
@@ -123,22 +121,22 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Configuración de OpenAI
+    # Configuración de OpenAI - Obtener de secrets
     st.subheader("🤖 Configuración OpenAI")
     
-    openai_api_key = st.text_input(
-        "🔑 API Key de OpenAI:",
-        value="",
-        type="password",
-        placeholder="sk-...",
-        help="Ingresa tu API key de OpenAI para usar el agente inteligente"
-    )
-    
-    if openai_api_key:
-        os.environ["OPENAI_API_KEY"] = openai_api_key
-        st.success("✅ API Key configurada")
-    else:
-        st.warning("⚠️ API Key requerida para el agente IA")
+    # Intentar obtener la API key desde secrets
+    try:
+        openai_api_key = st.secrets["settings"]["OPENAI_API_KEY"]
+        if openai_api_key:
+            os.environ["OPENAI_API_KEY"] = openai_api_key
+            st.success("✅ API Key configurada desde secrets")
+        else:
+            st.error("❌ API Key vacía en secrets")
+            openai_api_key = None
+    except Exception as e:
+        st.error(f"❌ Error obteniendo API Key: {str(e)}")
+        st.info("💡 Asegúrate de tener configurado OPENAI_API_KEY en secrets.toml")
+        openai_api_key = None
     
     # Configuración del modelo
     model_name = st.selectbox(
@@ -262,7 +260,7 @@ else:
     st.header("🤖 Agente de Análisis IA")
     
     if not openai_api_key:
-        st.warning("⚠️ Configura tu API Key de OpenAI en la barra lateral para usar el agente inteligente.")
+        st.warning("⚠️ Configura tu API Key de OpenAI en secrets.toml para usar el agente inteligente.")
     else:
         try:
             # Inicializar el modelo de OpenAI
