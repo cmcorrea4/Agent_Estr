@@ -24,14 +24,10 @@ st.markdown("**Obtén datos CUSUM y analízalos con IA avanzada**")
 
 # Función para consultar el endpoint CUSUM
 @st.cache_data(ttl=300)  # Cache por 5 minutos
-def consultar_endpoint_cusum():
+def consultar_endpoint_cusum(username, password):
     """Consulta el endpoint CUSUM y retorna los datos en formato JSON"""
     try:
         url = "https://energy-api-628964750053.us-east1.run.app/test-cusum"
-        
-        # Usar credenciales desde secrets
-        username = st.secrets["settings"]["API_USERNAME"]   
-        password = st.secrets["settings"]["API_PASSWORD"]   
         
         # Crear credenciales de autenticación
         credentials = f"{username}:{password}"
@@ -432,13 +428,10 @@ def crear_grafico_cusum(df):
             with col3:
                 if tendencia_promedio > 0.1:
                     tendencia_text = "↗️ Creciente"
-                    color = "normal"
                 elif tendencia_promedio < -0.1:
                     tendencia_text = "↘️ Decreciente"
-                    color = "normal"
                 else:
                     tendencia_text = "➡️ Estable"
-                    color = "normal"
                 st.metric("🎯 Dirección", tendencia_text)
             
             # Interpretación
@@ -468,6 +461,7 @@ def crear_grafico_cusum(df):
     except Exception as e:
         st.error(f"❌ Error creando gráfico CUSUM: {str(e)}")
         st.info("💡 Verifica que los datos de cusumkWh sean numéricos válidos.")
+
 def mostrar_info_dataframe(df):
     """Muestra información básica del DataFrame"""
     col1, col2, col3, col4 = st.columns(4)
@@ -493,24 +487,50 @@ def mostrar_info_dataframe(df):
 with st.sidebar:
     st.header("⚙️ Panel de Control")
     
-    # Configuración de OpenAI
-    st.subheader("🤖 Configuración OpenAI")
-    openai_api_key = st.secrets["settings"]["OPENAI_API_KEY"] 
-    if openai_api_key:
-        os.environ["OPENAI_API_KEY"] = openai_api_key
-        st.success("✅ API Key configurada")
-    else:
-        st.warning("⚠️ API Key requerida para el agente IA")
+    # Configuración del Endpoint API
+    st.subheader("🔌 Configuración del Endpoint")
     
-    # Configuración del modelo
+    api_username = st.text_input(
+        "👤 Usuario del Endpoint:",
+        placeholder="Ingresa tu usuario",
+        help="Usuario para autenticación del endpoint CUSUM"
+    )
+    
+    api_password = st.text_input(
+        "🔒 Contraseña del Endpoint:",
+        type="password",
+        placeholder="Ingresa tu contraseña",
+        help="Contraseña para autenticación del endpoint"
+    )
+    
+    # Validar que todos los campos estén completos
+    endpoint_configured = bool(api_username and api_password)
+    
+    if endpoint_configured:
+        st.success("✅ Credenciales del endpoint configuradas")
+    else:
+        st.warning("⚠️ Ingresa usuario y contraseña del endpoint")
+    
+    # Configuración de OpenAI - Obtener de secrets (oculto)
+    try:
+        openai_api_key = st.secrets["settings"]["OPENAI_API_KEY"]
+        if openai_api_key:
+            os.environ["OPENAI_API_KEY"] = openai_api_key
+        else:
+            openai_api_key = None
+    except Exception as e:
+        openai_api_key = None
+    
+    # Configuración del modelo (fija, sin mostrar)
     model_name = "gpt-4"
     temperature = 0.1
+    
     st.markdown("---")
     
     # Botón para obtener datos del endpoint
-    if st.button("📊 Obtener Datos CUSUM", use_container_width=True):
+    if st.button("📊 Obtener Datos CUSUM", use_container_width=True, disabled=not endpoint_configured):
         with st.spinner("Consultando endpoint CUSUM..."):
-            datos_json, error = consultar_endpoint_cusum()
+            datos_json, error = consultar_endpoint_cusum(api_username, api_password)
             
             if datos_json is not None:
                 st.success("✅ Datos CUSUM obtenidos")
@@ -551,7 +571,7 @@ with st.sidebar:
 
 # Contenido principal
 if "df_cusum" not in st.session_state:
-    st.info("👆 Haz clic en 'Obtener Datos CUSUM' en la barra lateral para comenzar")
+    st.info("👆 Configura las credenciales y haz clic en 'Obtener Datos CUSUM' en la barra lateral para comenzar")
     
     # Información sobre la aplicación
     st.markdown("---")
@@ -651,7 +671,7 @@ else:
     st.header("🤖 Agente de Análisis IA")
     
     if not openai_api_key:
-        st.warning("⚠️ Configura tu API Key de OpenAI en la barra lateral para usar el agente inteligente.")
+        st.warning("⚠️ Configura tu API Key de OpenAI en secrets.toml para usar el agente inteligente.")
     else:
         try:
             # Inicializar el modelo de OpenAI
