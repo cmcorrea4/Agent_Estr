@@ -100,12 +100,14 @@ with st.sidebar:
     
     api_username = st.text_input(
         "👤 Usuario del Endpoint:",
+        value="",
         placeholder="Ingresa tu usuario",
         help="Usuario para autenticación del endpoint de energía"
     )
     
     api_password = st.text_input(
         "🔒 Contraseña del Endpoint:",
+        value="",
         type="password",
         placeholder="Ingresa tu contraseña",
         help="Contraseña para autenticación del endpoint"
@@ -126,6 +128,7 @@ with st.sidebar:
     
     openai_api_key = st.text_input(
         "🔑 API Key de OpenAI:",
+        value="",
         type="password",
         placeholder="sk-...",
         help="Ingresa tu API key de OpenAI para usar el agente inteligente"
