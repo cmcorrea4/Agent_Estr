@@ -591,7 +591,7 @@ if "df_cusum" not in st.session_state:
     Esta aplicación integra dos funcionalidades principales:
     
     1. **📊 Obtención de datos CUSUM**: Consulta el endpoint de control de calidad
-    2. **🤖 Análisis con IA**: Procesa los datos usando un agente inteligente de pandas
+    2. **🤖 Análisis con IA**: Procesa los datos usando un agente de datos
     
     **Funcionalidades:**
     - Conexión automática al endpoint CUSUM
@@ -709,7 +709,6 @@ else:
                 "¿Qué información contiene el dataset?",
                 "¿Cuáles son las columnas disponibles?",
                 "¿Cuáles son las estadísticas principales de los datos?",
-                "¿Cómo evoluciona el CUSUM a lo largo del tiempo?",
                 "¿Hay tendencias significativas en el consumo de energía?",
                 "¿Cuándo el proceso estuvo fuera de control?",
                 "¿Qué periodo cubren los datos (fechas)?",
@@ -805,7 +804,7 @@ st.markdown("---")
 st.markdown(
     """
     <div style='text-align: center; color: gray; font-size: 14px;'>
-    📊 Control - Sistema de Análisis de Control de Calidad con IA | Powered by SUME & SOSPOL
+    📊 Control - Sistema de Análisis de Control, gestión energética| Powered by SUME & SOSPOL
     </div>
     """, 
     unsafe_allow_html=True
