@@ -187,7 +187,7 @@ if "df_energia" not in st.session_state:
     Esta aplicación integra dos funcionalidades principales:
     
     1. **🔌 Obtención de datos**: Consulta el endpoint de energía de ESTRA
-    2. **🤖 Análisis con IA**: Procesa los datos usando un agente inteligente de pandas
+    2. **🤖 Análisis con IA**: Procesa los datos usando un agente.
     
     **Funcionalidades:**
     - Conexión automática al sistema de energía ESTRA
