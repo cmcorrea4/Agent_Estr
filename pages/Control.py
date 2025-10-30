@@ -436,11 +436,11 @@ def crear_grafico_cusum(df):
             
             # Interpretación
             if tendencia_promedio > 0.1:
-                st.warning("⚠️ **Interpretación**: Tendencia creciente significativa. El proceso puede estar fuera de control.")
+                st.warning("⚠️ **Interpretación**: Tendencia creciente significativa.")
             elif tendencia_promedio < -0.1:
-                st.warning("⚠️ **Interpretación**: Tendencia decreciente significativa. El proceso puede estar mejorando o fuera de control.")
+                st.warning("⚠️ **Interpretación**: Tendencia decreciente significativa.")
             else:
-                st.success("✅ **Interpretación**: Tendencia estable. El proceso parece estar bajo control.")
+                st.success("✅ **Interpretación**: Tendencia estable.")
         
         # Mostrar tabla de valores fuera de control si existen
         if len(cusum_values) > 1:
