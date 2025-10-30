@@ -519,15 +519,37 @@ with st.sidebar:
         endpoint_configured = True
         st.success("✅ Sesión activa")
     
-    # Configuración de OpenAI - Obtener de secrets (oculto)
-    try:
-        openai_api_key = st.secrets["settings"]["OPENAI_API_KEY"]
+    st.markdown("---")
+    
+    # Configuración de OpenAI API Key
+    st.subheader("🤖 Configuración de OpenAI")
+    
+    if "openai_api_key_cusum" not in st.session_state:
+        openai_api_key = st.text_input(
+            "🔑 API Key de OpenAI:",
+            type="password",
+            placeholder="sk-...",
+            help="Ingresa tu API Key de OpenAI para usar el agente inteligente",
+            key="openai_key_input_cusum"
+        )
+        
         if openai_api_key:
+            st.session_state.openai_api_key_cusum = openai_api_key
             os.environ["OPENAI_API_KEY"] = openai_api_key
+            st.success("✅ API Key configurada")
         else:
-            openai_api_key = None
-    except Exception as e:
-        openai_api_key = None
+            st.warning("⚠️ Ingresa tu API Key de OpenAI")
+    else:
+        openai_api_key = st.session_state.openai_api_key_cusum
+        os.environ["OPENAI_API_KEY"] = openai_api_key
+        st.success("✅ API Key configurada")
+        
+        # Botón para cambiar API Key
+        if st.button("🔄 Cambiar API Key", key="change_api_key_cusum"):
+            del st.session_state.openai_api_key_cusum
+            if "OPENAI_API_KEY" in os.environ:
+                del os.environ["OPENAI_API_KEY"]
+            st.rerun()
     
     # Configuración del modelo (fija, sin mostrar)
     model_name = "gpt-4"
@@ -681,15 +703,15 @@ else:
     # Agente de Análisis IA
     st.header("🤖 Agente de Análisis IA")
     
-    if not openai_api_key:
-        st.warning("⚠️ Configura tu API Key de OpenAI en secrets.toml para usar el agente inteligente.")
+    if "openai_api_key_cusum" not in st.session_state or not st.session_state.openai_api_key_cusum:
+        st.warning("⚠️ Configura tu API Key de OpenAI en la barra lateral para usar el agente inteligente.")
     else:
         try:
             # Inicializar el modelo de OpenAI
             llm = ChatOpenAI(
                 model=model_name,
                 temperature=temperature,
-                openai_api_key=openai_api_key
+                openai_api_key=st.session_state.openai_api_key_cusum
             )
             
             # Crear el agente de pandas
