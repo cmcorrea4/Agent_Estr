@@ -5,7 +5,6 @@ import requests
 import json
 import base64
 import os
-from langchain.agents.agent_types import AgentType
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_openai import ChatOpenAI
 import warnings
@@ -281,12 +280,11 @@ else:
                 openai_api_key=st.session_state.openai_api_key
             )
             
-            # Crear el agente de pandas
+            # Crear el agente de pandas (sin especificar agent_type ya que usa el predeterminado)
             agent = create_pandas_dataframe_agent(
                 llm,
                 df_energia,
                 verbose=True,
-                agent_type=AgentType.OPENAI_FUNCTIONS,
                 allow_dangerous_code=True
             )
             
