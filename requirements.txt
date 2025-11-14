@@ -2,8 +2,10 @@ streamlit==1.31.0
 pandas==2.1.4
 numpy==1.26.3
 requests==2.31.0
-langchain==0.1.0
-langchain-experimental==0.0.47
-langchain-openai==0.0.2
+langchain==0.3.7
+langchain-experimental==0.3.3
+langchain-openai==0.2.9
 openai==1.7.2
+
+#pip install langchain==0.3.7 langchain-experimental==0.3.3 langchain-openai==0.2.9
 
