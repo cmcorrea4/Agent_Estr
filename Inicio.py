@@ -5,6 +5,7 @@ import requests
 import json
 import base64
 import os
+from datetime import datetime, timedelta
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_openai import ChatOpenAI
 import warnings
@@ -21,12 +22,20 @@ st.set_page_config(
 st.title("🏭 Diagnóstico de gestión energética--ESTRA")
 st.markdown("**Obtén datos del sistema energético y analízalos con IA avanzada**")
 
-# Función para consultar el endpoint de energía
+# Función para consultar el endpoint de energía con filtros de fecha
 @st.cache_data(ttl=300)  # Cache por 5 minutos
-def consultar_endpoint_energia(username, password):
+def consultar_endpoint_energia(username, password, date_start=None, date_end=None):
     """Consulta el endpoint de energía y retorna los datos en formato JSON"""
     try:
+        # URL base
         url = "https://energy-api-628964750053.us-east1.run.app/test-summary"
+        
+        # Agregar parámetros de fecha si están disponibles
+        params = {}
+        if date_start:
+            params['dateStart'] = date_start
+        if date_end:
+            params['dateEnd'] = date_end
         
         # Crear credenciales de autenticación
         credentials = f"{username}:{password}"
@@ -40,7 +49,7 @@ def consultar_endpoint_energia(username, password):
         }
         
         # Realizar la petición
-        response = requests.get(url, headers=headers, timeout=30)
+        response = requests.get(url, headers=headers, params=params, timeout=30)
         
         if response.status_code == 200:
             try:
@@ -90,6 +99,16 @@ def mostrar_info_dataframe(df):
     with col4:
         st.metric("🔢 Valores No Nulos", df.count().sum())
 
+# Función para obtener el inicio de la semana (lunes)
+def get_week_start(date):
+    """Retorna el inicio de la semana (lunes) para una fecha dada"""
+    return date - timedelta(days=date.weekday())
+
+# Función para obtener el fin de la semana (domingo)
+def get_week_end(date):
+    """Retorna el fin de la semana (domingo) para una fecha dada"""
+    return date + timedelta(days=6 - date.weekday())
+
 # Sidebar para configuración
 with st.sidebar:
     st.header("⚙️ Panel de Control")
@@ -125,6 +144,66 @@ with st.sidebar:
         api_password = st.session_state.get('api_password', '')
         endpoint_configured = True
         st.success("✅ Sesión activa")
+    
+    st.markdown("---")
+    
+    # Filtros de fecha
+    st.subheader("📅 Filtro de Fechas")
+    
+    # Selector de tipo de filtro
+    filter_type = st.radio(
+        "Tipo de filtro:",
+        ["Por semana", "Por rango de fechas"],
+        help="Selecciona cómo deseas filtrar los datos"
+    )
+    
+    if filter_type == "Por semana":
+        # Obtener la semana actual por defecto
+        today = datetime.now().date()
+        default_week_start = get_week_start(today)
+        
+        # Selector de semana
+        selected_week = st.date_input(
+            "Selecciona una fecha (se usará su semana completa):",
+            value=st.session_state.get('selected_week', today),
+            help="Selecciona cualquier día de la semana que deseas consultar"
+        )
+        
+        # Calcular inicio y fin de la semana
+        date_start = get_week_start(selected_week)
+        date_end = get_week_end(selected_week)
+        
+        # Mostrar información de la semana
+        st.info(f"📅 Semana del **{date_start.strftime('%d/%m/%Y')}** al **{date_end.strftime('%d/%m/%Y')}**")
+        st.write(f"🗓️ {7} días")
+        
+        dates_valid = True
+        
+    else:  # Por rango de fechas
+        # Obtener fechas guardadas o usar valores por defecto
+        default_start = st.session_state.get('date_start', datetime(2024, 1, 1).date())
+        default_end = st.session_state.get('date_end', datetime.now().date())
+        
+        date_start = st.date_input(
+            "Fecha de inicio:",
+            value=default_start,
+            help="Selecciona la fecha inicial del rango"
+        )
+        
+        date_end = st.date_input(
+            "Fecha de fin:",
+            value=default_end,
+            help="Selecciona la fecha final del rango"
+        )
+        
+        # Validar que la fecha de inicio sea menor que la de fin
+        if date_start > date_end:
+            st.error("⚠️ La fecha de inicio debe ser anterior a la fecha de fin")
+            dates_valid = False
+        else:
+            dates_valid = True
+            dias = (date_end - date_start).days + 1
+            st.info(f"📊 Rango: {dias} días")
     
     st.markdown("---")
     
@@ -164,9 +243,19 @@ with st.sidebar:
     st.markdown("---")
     
     # Botón para obtener datos del endpoint
-    if st.button("🔌 Obtener Datos del Sistema", use_container_width=True, disabled=not endpoint_configured):
+    if st.button("🔌 Obtener Datos del Sistema", use_container_width=True, 
+                 disabled=not (endpoint_configured and dates_valid)):
         with st.spinner("Consultando endpoint de energía..."):
-            datos_json, error = consultar_endpoint_energia(api_username, api_password)
+            # Convertir fechas a formato string YYYY-MM-DD
+            date_start_str = date_start.strftime('%Y-%m-%d')
+            date_end_str = date_end.strftime('%Y-%m-%d')
+            
+            datos_json, error = consultar_endpoint_energia(
+                api_username, 
+                api_password, 
+                date_start_str, 
+                date_end_str
+            )
             
             if datos_json is not None:
                 st.success("✅ Datos obtenidos del sistema")
@@ -179,9 +268,14 @@ with st.sidebar:
                     # Guardar en session state
                     st.session_state.df_energia = df_energia
                     st.session_state.datos_json = datos_json
-                    # Guardar credenciales para no pedirlas de nuevo
+                    # Guardar credenciales y fechas para no pedirlas de nuevo
                     st.session_state.api_username = api_username
                     st.session_state.api_password = api_password
+                    st.session_state.date_start = date_start
+                    st.session_state.date_end = date_end
+                    st.session_state.filter_type = filter_type
+                    if filter_type == "Por semana":
+                        st.session_state.selected_week = selected_week
                     st.rerun()
                 else:
                     st.error(f"❌ Error creando DataFrame: {error_df}")
@@ -192,12 +286,19 @@ with st.sidebar:
     if "df_energia" in st.session_state:
         st.success("🟢 Datos cargados y listos")
         st.info(f"📊 DataFrame: {st.session_state.df_energia.shape[0]} filas, {st.session_state.df_energia.shape[1]} columnas")
+        
+        # Mostrar rango de fechas actual
+        if 'date_start' in st.session_state and 'date_end' in st.session_state:
+            if st.session_state.get('filter_type') == "Por semana":
+                st.info(f"📅 Semana: {st.session_state.date_start.strftime('%d/%m/%Y')} - {st.session_state.date_end.strftime('%d/%m/%Y')}")
+            else:
+                st.info(f"📅 Período: {st.session_state.date_start.strftime('%d/%m/%Y')} - {st.session_state.date_end.strftime('%d/%m/%Y')}")
     else:
         st.warning("🔴 Sin datos del sistema")
 
 # Contenido principal
 if "df_energia" not in st.session_state:
-    st.info("👆 Configura las credenciales y haz clic en 'Obtener Datos del Sistema' en la barra lateral para comenzar")
+    st.info("👆 Configura las credenciales, selecciona el filtro de fechas y haz clic en 'Obtener Datos del Sistema' en la barra lateral para comenzar")
     
     # Información sobre la aplicación
     st.markdown("---")
@@ -205,11 +306,13 @@ if "df_energia" not in st.session_state:
     st.markdown("""
     Esta aplicación integra dos funcionalidades principales:
     
-    1. **🔌 Obtención de datos**: Consulta el endpoint de energía de ESTRA
+    1. **🔌 Obtención de datos**: Consulta el endpoint de energía de ESTRA con filtros de fecha
     2. **🤖 Análisis con IA**: Procesa los datos usando un agente.
     
     **Funcionalidades:**
     - Conexión automática al sistema de energía ESTRA
+    - Filtrado por semana completa (lunes a domingo)
+    - Filtrado por rango de fechas personalizado
     - Conversión de JSON a DataFrame de pandas
     - Análisis inteligente con preguntas en lenguaje natural
     - Visualizaciones automáticas
@@ -222,6 +325,17 @@ else:
     datos_json = st.session_state.datos_json
     
     st.success("✅ Datos del sistema energético cargados exitosamente")
+    
+    # Mostrar rango de fechas de los datos cargados
+    if 'date_start' in st.session_state and 'date_end' in st.session_state:
+        col1, col2, col3 = st.columns([2, 2, 1])
+        with col1:
+            st.info(f"📅 Desde: **{st.session_state.date_start.strftime('%d/%m/%Y')}**")
+        with col2:
+            st.info(f"📅 Hasta: **{st.session_state.date_end.strftime('%d/%m/%Y')}**")
+        with col3:
+            dias = (st.session_state.date_end - st.session_state.date_start).days + 1
+            st.metric("📊 Días", dias)
     
     # Mostrar información básica del DataFrame
     st.header("📊 Información del Dataset")
@@ -383,6 +497,7 @@ else:
             del st.session_state.api_username
         if "api_password" in st.session_state:
             del st.session_state.api_password
+        # No borrar las fechas para mantenerlas como referencia
         st.rerun()
 
 # Footer
