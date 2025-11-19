@@ -5,6 +5,7 @@ import requests
 import json
 import base64
 import os
+from datetime import datetime, timedelta
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_openai import ChatOpenAI
 import warnings
@@ -21,12 +22,29 @@ st.set_page_config(
 st.title("📊 Control de gestión energética --ESTRA")
 st.markdown("**Obtén datos CUSUM y analízalos con IA avanzada**")
 
-# Función para consultar el endpoint CUSUM
+# Función para obtener el inicio de la semana (lunes)
+def get_week_start(date):
+    """Retorna el inicio de la semana (lunes) para una fecha dada"""
+    return date - timedelta(days=date.weekday())
+
+# Función para obtener el fin de la semana (domingo)
+def get_week_end(date):
+    """Retorna el fin de la semana (domingo) para una fecha dada"""
+    return date + timedelta(days=6 - date.weekday())
+
+# Función para consultar el endpoint CUSUM con filtros de fecha
 @st.cache_data(ttl=300)  # Cache por 5 minutos
-def consultar_endpoint_cusum(username, password):
+def consultar_endpoint_cusum(username, password, date_start=None, date_end=None):
     """Consulta el endpoint CUSUM y retorna los datos en formato JSON"""
     try:
         url = "https://energy-api-628964750053.us-east1.run.app/test-cusum"
+        
+        # Agregar parámetros de fecha si están disponibles
+        params = {}
+        if date_start:
+            params['dateStart'] = date_start
+        if date_end:
+            params['dateEnd'] = date_end
         
         # Crear credenciales de autenticación
         credentials = f"{username}:{password}"
@@ -40,7 +58,7 @@ def consultar_endpoint_cusum(username, password):
         }
         
         # Realizar la petición
-        response = requests.get(url, headers=headers, timeout=30)
+        response = requests.get(url, headers=headers, params=params, timeout=30)
         
         if response.status_code == 200:
             try:
@@ -520,6 +538,66 @@ with st.sidebar:
     
     st.markdown("---")
     
+    # Filtros de fecha
+    st.subheader("📅 Filtro de Fechas")
+    
+    # Selector de tipo de filtro
+    filter_type = st.radio(
+        "Tipo de filtro:",
+        ["Por semana", "Por rango de fechas"],
+        help="Selecciona cómo deseas filtrar los datos"
+    )
+    
+    if filter_type == "Por semana":
+        # Obtener la semana actual por defecto
+        today = datetime.now().date()
+        default_week_start = get_week_start(today)
+        
+        # Selector de semana
+        selected_week = st.date_input(
+            "Selecciona una fecha (se usará su semana completa):",
+            value=st.session_state.get('selected_week_cusum', today),
+            help="Selecciona cualquier día de la semana que deseas consultar"
+        )
+        
+        # Calcular inicio y fin de la semana
+        date_start = get_week_start(selected_week)
+        date_end = get_week_end(selected_week)
+        
+        # Mostrar información de la semana
+        st.info(f"📅 Semana del **{date_start.strftime('%d/%m/%Y')}** al **{date_end.strftime('%d/%m/%Y')}**")
+        st.write(f"🗓️ {7} días")
+        
+        dates_valid = True
+        
+    else:  # Por rango de fechas
+        # Obtener fechas guardadas o usar valores por defecto
+        default_start = st.session_state.get('date_start_cusum', datetime(2024, 1, 1).date())
+        default_end = st.session_state.get('date_end_cusum', datetime.now().date())
+        
+        date_start = st.date_input(
+            "Fecha de inicio:",
+            value=default_start,
+            help="Selecciona la fecha inicial del rango"
+        )
+        
+        date_end = st.date_input(
+            "Fecha de fin:",
+            value=default_end,
+            help="Selecciona la fecha final del rango"
+        )
+        
+        # Validar que la fecha de inicio sea menor que la de fin
+        if date_start > date_end:
+            st.error("⚠️ La fecha de inicio debe ser anterior a la fecha de fin")
+            dates_valid = False
+        else:
+            dates_valid = True
+            dias = (date_end - date_start).days + 1
+            st.info(f"📊 Rango: {dias} días")
+    
+    st.markdown("---")
+    
     # Configuración de OpenAI API Key
     st.subheader("🤖 Configuración de OpenAI")
     
@@ -557,9 +635,19 @@ with st.sidebar:
     st.markdown("---")
     
     # Botón para obtener datos del endpoint
-    if st.button("📊 Obtener Datos CUSUM", use_container_width=True, disabled=not endpoint_configured):
+    if st.button("📊 Obtener Datos CUSUM", use_container_width=True, 
+                 disabled=not (endpoint_configured and dates_valid)):
         with st.spinner("Consultando endpoint CUSUM..."):
-            datos_json, error = consultar_endpoint_cusum(api_username, api_password)
+            # Convertir fechas a formato string YYYY-MM-DD
+            date_start_str = date_start.strftime('%Y-%m-%d')
+            date_end_str = date_end.strftime('%Y-%m-%d')
+            
+            datos_json, error = consultar_endpoint_cusum(
+                api_username, 
+                api_password, 
+                date_start_str, 
+                date_end_str
+            )
             
             if datos_json is not None:
                 st.success("✅ Datos CUSUM obtenidos")
@@ -585,9 +673,14 @@ with st.sidebar:
                     st.session_state.df_cusum = df_cusum
                     st.session_state.datos_json_cusum = datos_json
                     st.session_state.parsing_info = parsing_info
-                    # Guardar credenciales para no pedirlas de nuevo
+                    # Guardar credenciales y fechas para no pedirlas de nuevo
                     st.session_state.api_username_cusum = api_username
                     st.session_state.api_password_cusum = api_password
+                    st.session_state.date_start_cusum = date_start
+                    st.session_state.date_end_cusum = date_end
+                    st.session_state.filter_type_cusum = filter_type
+                    if filter_type == "Por semana":
+                        st.session_state.selected_week_cusum = selected_week
                     st.rerun()
                 else:
                     st.error(f"❌ Error creando DataFrame: {error_df}")
@@ -598,12 +691,19 @@ with st.sidebar:
     if "df_cusum" in st.session_state:
         st.success("🟢 Datos cargados y listos")
         st.info(f"📊 DataFrame: {st.session_state.df_cusum.shape[0]} filas, {st.session_state.df_cusum.shape[1]} columnas")
+        
+        # Mostrar rango de fechas actual
+        if 'date_start_cusum' in st.session_state and 'date_end_cusum' in st.session_state:
+            if st.session_state.get('filter_type_cusum') == "Por semana":
+                st.info(f"📅 Semana: {st.session_state.date_start_cusum.strftime('%d/%m/%Y')} - {st.session_state.date_end_cusum.strftime('%d/%m/%Y')}")
+            else:
+                st.info(f"📅 Período: {st.session_state.date_start_cusum.strftime('%d/%m/%Y')} - {st.session_state.date_end_cusum.strftime('%d/%m/%Y')}")
     else:
         st.warning("🔴 Sin datos CUSUM")
 
 # Contenido principal
 if "df_cusum" not in st.session_state:
-    st.info("👆 Configura las credenciales y haz clic en 'Obtener Datos CUSUM' en la barra lateral para comenzar")
+    st.info("👆 Configura las credenciales, selecciona el filtro de fechas y haz clic en 'Obtener Datos CUSUM' en la barra lateral para comenzar")
     
     # Información sobre la aplicación
     st.markdown("---")
@@ -611,11 +711,13 @@ if "df_cusum" not in st.session_state:
     st.markdown("""
     Esta aplicación integra dos funcionalidades principales:
     
-    1. **📊 Obtención de datos CUSUM**: Consulta el endpoint de control de calidad
+    1. **📊 Obtención de datos CUSUM**: Consulta el endpoint de control de calidad con filtros de fecha
     2. **🤖 Análisis con IA**: Procesa los datos usando un agente de datos
     
     **Funcionalidades:**
     - Conexión automática al endpoint CUSUM
+    - Filtrado por semana completa (lunes a domingo)
+    - Filtrado por rango de fechas personalizado
     - Conversión de JSON a DataFrame de pandas
     - Análisis inteligente con preguntas en lenguaje natural
     - Estadísticas descriptivas
@@ -627,6 +729,17 @@ else:
     datos_json_cusum = st.session_state.datos_json_cusum
     
     st.success("✅ Datos CUSUM cargados exitosamente")
+    
+    # Mostrar rango de fechas de los datos cargados
+    if 'date_start_cusum' in st.session_state and 'date_end_cusum' in st.session_state:
+        col1, col2, col3 = st.columns([2, 2, 1])
+        with col1:
+            st.info(f"📅 Desde: **{st.session_state.date_start_cusum.strftime('%d/%m/%Y')}**")
+        with col2:
+            st.info(f"📅 Hasta: **{st.session_state.date_end_cusum.strftime('%d/%m/%Y')}**")
+        with col3:
+            dias = (st.session_state.date_end_cusum - st.session_state.date_start_cusum).days + 1
+            st.metric("📊 Días", dias)
     
     # Mostrar información básica del DataFrame
     st.header("📊 Información del Dataset CUSUM")
@@ -817,6 +930,7 @@ else:
             del st.session_state.api_username_cusum
         if "api_password_cusum" in st.session_state:
             del st.session_state.api_password_cusum
+        # No borrar las fechas para mantenerlas como referencia
         st.rerun()
 
 # Footer
