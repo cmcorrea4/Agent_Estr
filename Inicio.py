@@ -23,30 +23,27 @@ st.title("🏭 Diagnóstico de gestión energética--ESTRA")
 st.markdown("**Obtén datos del sistema energético y analízalos con IA avanzada**")
 
 # Función para consultar el endpoint de energía
-@st.cache_data(ttl=300)  # Cache por 5 minutos
+@st.cache_data(ttl=300)
 def consultar_endpoint_energia(username, password):
     """Consulta el endpoint de energía y retorna los datos en formato JSON"""
     try:
         url = "https://energy-api-628964750053.us-east1.run.app/test-summary"
         
-        # Crear credenciales de autenticación
         credentials = f"{username}:{password}"
         encoded_credentials = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
         
-        # Configurar headers
         headers = {
             'Authorization': f'Basic {encoded_credentials}',
             'User-Agent': 'StreamlitApp/1.0',
             'Accept': 'application/json'
         }
         
-        # Realizar la petición
         response = requests.get(url, headers=headers, timeout=30)
         
         if response.status_code == 200:
             try:
                 data = response.json()
-                return data, None  # datos, error
+                return data, None
             except json.JSONDecodeError as e:
                 return None, f"Error parseando JSON: {str(e)}"
         else:
@@ -64,13 +61,10 @@ def json_to_dataframe(json_data):
     """Convierte los datos JSON del endpoint a un DataFrame de pandas"""
     try:
         if isinstance(json_data, dict):
-            # Si es un diccionario, convertir a DataFrame con una fila
             df = pd.DataFrame([json_data])
         elif isinstance(json_data, list):
-            # Si es una lista, convertir directamente
             df = pd.DataFrame(json_data)
         else:
-            # Si es otro tipo, intentar convertir
             df = pd.DataFrame({'data': [json_data]})
         
         return df, None
@@ -91,14 +85,16 @@ def mostrar_info_dataframe(df):
     with col4:
         st.metric("🔢 Valores No Nulos", df.count().sum())
 
+# Inicializar session state
+if 'chat_history_energia' not in st.session_state:
+    st.session_state.chat_history_energia = []
+
 # Sidebar para configuración
 with st.sidebar:
     st.header("⚙️ Panel de Control")
     
-    # Configuración del Endpoint API
     st.subheader("🔌 Configuración del Endpoint")
     
-    # Solo mostrar campos si no hay datos cargados
     if "df_energia" not in st.session_state:
         api_username = st.text_input(
             "👤 Usuario del Endpoint:",
@@ -113,15 +109,13 @@ with st.sidebar:
             help="Contraseña para autenticación del endpoint"
         )
         
-        # Validar que todos los campos estén completos
         endpoint_configured = bool(api_username and api_password)
         
         if endpoint_configured:
-            st.success("✅ Credenciales del endpoint configuradas")
+            st.success("✅ Credenciales configuradas")
         else:
-            st.warning("⚠️ Ingresa usuario y contraseña del endpoint")
+            st.warning("⚠️ Ingresa usuario y contraseña")
     else:
-        # Si ya hay datos cargados, usar las credenciales guardadas
         api_username = st.session_state.get('api_username', '')
         api_password = st.session_state.get('api_password', '')
         endpoint_configured = True
@@ -129,87 +123,58 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Configuración de OpenAI API Key
     st.subheader("🤖 Configuración de OpenAI")
     
-    if "openai_api_key" not in st.session_state:
-        openai_api_key = st.text_input(
-            "🔑 API Key de OpenAI:",
-            type="password",
-            placeholder="sk-...",
-            help="Ingresa tu API Key de OpenAI para usar el agente inteligente"
-        )
-        
-        if openai_api_key:
-            st.session_state.openai_api_key = openai_api_key
-            os.environ["OPENAI_API_KEY"] = openai_api_key
-            st.success("✅ API Key configurada")
-        else:
-            st.warning("⚠️ Ingresa tu API Key de OpenAI")
-    else:
-        openai_api_key = st.session_state.openai_api_key
+    openai_api_key = st.text_input(
+        "🔑 API Key de OpenAI:",
+        type="password",
+        placeholder="sk-...",
+        value=st.session_state.get('openai_api_key', ''),
+        help="Ingresa tu API Key de OpenAI"
+    )
+    
+    if openai_api_key:
+        st.session_state.openai_api_key = openai_api_key
         os.environ["OPENAI_API_KEY"] = openai_api_key
         st.success("✅ API Key configurada")
-        
-        # Botón para cambiar API Key
-        if st.button("🔄 Cambiar API Key"):
-            del st.session_state.openai_api_key
-            if "OPENAI_API_KEY" in os.environ:
-                del os.environ["OPENAI_API_KEY"]
-            st.rerun()
+    else:
+        st.warning("⚠️ Ingresa tu API Key")
     
-    # Configuración del modelo (fija, sin mostrar)
     model_name = "gpt-4"
     temperature = 0.1
     
     st.markdown("---")
     
-    # Botón para obtener datos del endpoint
-    btn_obtener = st.button("🔌 Obtener Datos del Sistema", use_container_width=True, disabled=not endpoint_configured)
-
-# Procesar obtención de datos FUERA del sidebar para evitar loops
-if btn_obtener and endpoint_configured:
-    placeholder = st.empty()
-    with placeholder.container():
-        with st.spinner("Consultando endpoint de energía..."):
+    # Botón obtener datos
+    if st.button("🔌 Obtener Datos del Sistema", use_container_width=True, disabled=not endpoint_configured):
+        with st.spinner("Consultando endpoint..."):
             datos_json, error = consultar_endpoint_energia(api_username, api_password)
             
             if datos_json is not None:
-                # Convertir JSON a DataFrame
                 df_energia_temp, error_df = json_to_dataframe(datos_json)
                 
                 if df_energia_temp is not None:
-                    # Guardar en session state
                     st.session_state.df_energia = df_energia_temp
                     st.session_state.datos_json = datos_json
-                    # Guardar credenciales para no pedirlas de nuevo
                     st.session_state.api_username = api_username
                     st.session_state.api_password = api_password
-                    st.session_state.datos_cargados = True
+                    st.success("✅ Datos cargados")
                 else:
-                    st.error(f"❌ Error creando DataFrame: {error_df}")
+                    st.error(f"❌ {error_df}")
             else:
-                st.error(f"❌ Error obteniendo datos: {error}")
-    placeholder.empty()
-
-# Forzar recarga si los datos se acaban de cargar
-if st.session_state.get('datos_cargados', False):
-    st.session_state.datos_cargados = False
-    st.rerun()
-
-# Estado de la conexión en sidebar
-with st.sidebar:
+                st.error(f"❌ {error}")
+    
+    # Estado
     if "df_energia" in st.session_state:
-        st.success("🟢 Datos cargados y listos")
-        st.info(f"📊 DataFrame: {st.session_state.df_energia.shape[0]} filas, {st.session_state.df_energia.shape[1]} columnas")
+        st.success("🟢 Datos listos")
+        st.info(f"📊 {st.session_state.df_energia.shape[0]} filas, {st.session_state.df_energia.shape[1]} columnas")
     else:
-        st.warning("🔴 Sin datos del sistema")
+        st.warning("🔴 Sin datos")
 
 # Contenido principal
 if "df_energia" not in st.session_state:
-    st.info("👆 Configura las credenciales y haz clic en 'Obtener Datos del Sistema' en la barra lateral para comenzar")
+    st.info("👆 Configura las credenciales y haz clic en 'Obtener Datos del Sistema' para comenzar")
     
-    # Información sobre la aplicación
     st.markdown("---")
     st.subheader("ℹ️ Sobre esta aplicación")
     st.markdown("""
@@ -227,17 +192,14 @@ if "df_energia" not in st.session_state:
     """)
 
 else:
-    # Mostrar los datos obtenidos
     df_energia = st.session_state.df_energia
     datos_json = st.session_state.datos_json
     
-    st.success("✅ Datos del sistema energético cargados exitosamente")
+    st.success("✅ Datos del sistema energético cargados")
     
-    # Mostrar información básica del DataFrame
     st.header("📊 Información del Dataset")
     mostrar_info_dataframe(df_energia)
     
-    # Tabs para diferentes vistas de los datos
     tab1, tab2, tab3, tab4 = st.tabs(["📋 Datos", "📈 Información", "🔍 Estadísticas", "🗂️ JSON Original"])
     
     with tab1:
@@ -264,13 +226,11 @@ else:
         if not numeric_df.empty:
             st.dataframe(numeric_df.describe(), use_container_width=True)
         else:
-            st.info("No hay columnas numéricas para estadísticas descriptivas.")
-            st.write("**Resumen de columnas de texto:**")
+            st.info("No hay columnas numéricas.")
             text_df = df_energia.select_dtypes(include=['object'])
             if not text_df.empty:
                 for col in text_df.columns:
-                    unique_vals = df_energia[col].nunique()
-                    st.write(f"• **{col}**: {unique_vals} valores únicos")
+                    st.write(f"• **{col}**: {df_energia[col].nunique()} valores únicos")
     
     with tab4:
         st.subheader("Datos JSON Originales")
@@ -279,18 +239,16 @@ else:
     # Agente de Análisis IA
     st.header("🤖 Agente de Análisis IA")
     
-    if "openai_api_key" not in st.session_state or not st.session_state.openai_api_key:
-        st.warning("⚠️ Configura tu API Key de OpenAI en la barra lateral para usar el agente inteligente.")
+    if not st.session_state.get('openai_api_key'):
+        st.warning("⚠️ Configura tu API Key de OpenAI en la barra lateral.")
     else:
         try:
-            # Inicializar el modelo de OpenAI
             llm = ChatOpenAI(
                 model=model_name,
                 temperature=temperature,
                 openai_api_key=st.session_state.openai_api_key
             )
             
-            # Crear el agente de pandas
             agent = create_pandas_dataframe_agent(
                 llm,
                 df_energia,
@@ -299,73 +257,55 @@ else:
                 allow_dangerous_code=True
             )
             
-            st.success("🎯 Agente IA inicializado correctamente")
+            st.success("🎯 Agente IA inicializado")
             
-            # Ejemplos específicos para datos energéticos
-            st.subheader("💡 Ejemplos de preguntas sobre datos energéticos:")
+            st.subheader("💡 Ejemplos de preguntas:")
             examples = [
                 "¿Qué información contiene el dataset?",
                 "¿Cuáles son las columnas disponibles?",
-                "¿Que Moldes tienen la mayor productividad efectiva?",
-                "¿En que fechas se trabajó el model 15252?",
+                "¿Qué Moldes tienen la mayor productividad efectiva?",
+                "¿En qué fechas se trabajó el model 15252?",
                 "¿Cuál Molde tiene mayor SECn?",
-                "¿Qué periodo cubren los datos (fechas)?",
-                "Cuáles son los mayores porcentaje de tiempo de paro y a que referencias corresponden?"
-                
             ]
             
             for i, example in enumerate(examples, 1):
                 st.write(f"{i}. {example}")
             
-            # Interface para hacer preguntas
             st.subheader("❓ Consulta los datos con IA")
             
-            # Historial de conversación
-            if 'chat_history_energia' not in st.session_state:
+            # Usar form para evitar reruns
+            with st.form(key="chat_form", clear_on_submit=True):
+                user_question = st.text_input(
+                    "Escribe tu pregunta:",
+                    placeholder="Ej: ¿Cuál es el tiempo de producción total vs efectivo?"
+                )
+                
+                col1, col2 = st.columns([1, 4])
+                with col1:
+                    submit_button = st.form_submit_button("🚀 Analizar", type="primary")
+                with col2:
+                    pass
+            
+            # Botón limpiar fuera del form
+            if st.button("🗑️ Limpiar historial"):
                 st.session_state.chat_history_energia = []
             
-            # Campo de entrada para la pregunta
-            user_question = st.text_input(
-                "Escribe tu pregunta sobre los datos energéticos:",
-                placeholder="Ej: ¿Cuál es el tiempo de producción total vs efectivo?",
-                key="user_input_energia"
-            )
-            
-            col1, col2 = st.columns([1, 4])
-            with col1:
-                ask_button = st.button("🚀 Analizar", type="primary")
-            with col2:
-                clear_button = st.button("🗑️ Limpiar historial")
-            
-            if clear_button:
-                st.session_state.chat_history_energia = []
-                st.rerun()
-            
-            if ask_button and user_question:
-                with st.spinner("🔄 El agente está analizando los datos energéticos..."):
+            # Procesar pregunta
+            if submit_button and user_question:
+                with st.spinner("🔄 El agente está analizando..."):
                     try:
-                        # Ejecutar la pregunta con el agente
                         response = agent.invoke({"input": user_question})
                         
-                        # Agregar al historial
                         st.session_state.chat_history_energia.append({
                             "question": user_question,
                             "answer": response["output"]
                         })
                         
-                        # Usar flag para rerun
-                        st.session_state.pregunta_procesada = True
-                        
                     except Exception as e:
-                        st.error(f"❌ Error al procesar la pregunta: {str(e)}")
-                        st.info("💡 Intenta reformular tu pregunta o verifica la sintaxis.")
+                        st.error(f"❌ Error: {str(e)}")
+                        st.info("💡 Intenta reformular tu pregunta.")
             
-            # Forzar recarga después de procesar pregunta
-            if st.session_state.get('pregunta_procesada', False):
-                st.session_state.pregunta_procesada = False
-                st.rerun()
-            
-            # Mostrar historial de conversación
+            # Mostrar historial
             if st.session_state.chat_history_energia:
                 st.subheader("💬 Análisis Realizados")
                 
@@ -383,23 +323,15 @@ else:
             
         except Exception as e:
             st.error(f"❌ Error al inicializar el agente: {str(e)}")
-            st.info("Verifica que tu API key de OpenAI sea válida y tenga créditos disponibles.")
+            st.info("Verifica que tu API key sea válida.")
     
-    # Botón para actualizar datos
     st.markdown("---")
     if st.button("🔄 Actualizar Datos del Sistema", use_container_width=True):
-        # Limpiar cache y session state
         consultar_endpoint_energia.clear()
-        if "df_energia" in st.session_state:
-            del st.session_state.df_energia
-        if "datos_json" in st.session_state:
-            del st.session_state.datos_json
-        if "chat_history_energia" in st.session_state:
-            st.session_state.chat_history_energia = []
-        if "api_username" in st.session_state:
-            del st.session_state.api_username
-        if "api_password" in st.session_state:
-            del st.session_state.api_password
+        for key in ['df_energia', 'datos_json', 'api_username', 'api_password']:
+            if key in st.session_state:
+                del st.session_state[key]
+        st.session_state.chat_history_energia = []
         st.rerun()
 
 # Footer
