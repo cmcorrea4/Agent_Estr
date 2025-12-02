@@ -5,7 +5,6 @@ import requests
 import json
 import base64
 import os
-#from langchain.agents.agent_types import AgentType
 from langchain.agents import AgentType
 from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 from langchain_openai import ChatOpenAI
@@ -166,31 +165,33 @@ with st.sidebar:
     st.markdown("---")
     
     # Botón para obtener datos del endpoint
-    if st.button("🔌 Obtener Datos del Sistema", use_container_width=True, disabled=not endpoint_configured):
-        with st.spinner("Consultando endpoint de energía..."):
-            datos_json, error = consultar_endpoint_energia(api_username, api_password)
+    btn_obtener = st.button("🔌 Obtener Datos del Sistema", use_container_width=True, disabled=not endpoint_configured)
+
+# Procesar obtención de datos FUERA del sidebar para evitar loops
+if btn_obtener and endpoint_configured:
+    with st.spinner("Consultando endpoint de energía..."):
+        datos_json, error = consultar_endpoint_energia(api_username, api_password)
+        
+        if datos_json is not None:
+            # Convertir JSON a DataFrame
+            df_energia, error_df = json_to_dataframe(datos_json)
             
-            if datos_json is not None:
-                st.success("✅ Datos obtenidos del sistema")
-                
-                # Convertir JSON a DataFrame
-                df_energia, error_df = json_to_dataframe(datos_json)
-                
-                if df_energia is not None:
-                    st.success("✅ DataFrame creado exitosamente")
-                    # Guardar en session state
-                    st.session_state.df_energia = df_energia
-                    st.session_state.datos_json = datos_json
-                    # Guardar credenciales para no pedirlas de nuevo
-                    st.session_state.api_username = api_username
-                    st.session_state.api_password = api_password
-                    st.rerun()
-                else:
-                    st.error(f"❌ Error creando DataFrame: {error_df}")
+            if df_energia is not None:
+                # Guardar en session state
+                st.session_state.df_energia = df_energia
+                st.session_state.datos_json = datos_json
+                # Guardar credenciales para no pedirlas de nuevo
+                st.session_state.api_username = api_username
+                st.session_state.api_password = api_password
+                st.success("✅ Datos obtenidos y DataFrame creado exitosamente")
+                st.rerun()
             else:
-                st.error(f"❌ Error obteniendo datos: {error}")
-    
-    # Estado de la conexión
+                st.error(f"❌ Error creando DataFrame: {error_df}")
+        else:
+            st.error(f"❌ Error obteniendo datos: {error}")
+
+# Estado de la conexión en sidebar
+with st.sidebar:
     if "df_energia" in st.session_state:
         st.success("🟢 Datos cargados y listos")
         st.info(f"📊 DataFrame: {st.session_state.df_energia.shape[0]} filas, {st.session_state.df_energia.shape[1]} columnas")
