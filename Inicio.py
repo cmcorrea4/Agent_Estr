@@ -169,26 +169,33 @@ with st.sidebar:
 
 # Procesar obtención de datos FUERA del sidebar para evitar loops
 if btn_obtener and endpoint_configured:
-    with st.spinner("Consultando endpoint de energía..."):
-        datos_json, error = consultar_endpoint_energia(api_username, api_password)
-        
-        if datos_json is not None:
-            # Convertir JSON a DataFrame
-            df_energia, error_df = json_to_dataframe(datos_json)
+    placeholder = st.empty()
+    with placeholder.container():
+        with st.spinner("Consultando endpoint de energía..."):
+            datos_json, error = consultar_endpoint_energia(api_username, api_password)
             
-            if df_energia is not None:
-                # Guardar en session state
-                st.session_state.df_energia = df_energia
-                st.session_state.datos_json = datos_json
-                # Guardar credenciales para no pedirlas de nuevo
-                st.session_state.api_username = api_username
-                st.session_state.api_password = api_password
-                st.success("✅ Datos obtenidos y DataFrame creado exitosamente")
-                st.rerun()
+            if datos_json is not None:
+                # Convertir JSON a DataFrame
+                df_energia_temp, error_df = json_to_dataframe(datos_json)
+                
+                if df_energia_temp is not None:
+                    # Guardar en session state
+                    st.session_state.df_energia = df_energia_temp
+                    st.session_state.datos_json = datos_json
+                    # Guardar credenciales para no pedirlas de nuevo
+                    st.session_state.api_username = api_username
+                    st.session_state.api_password = api_password
+                    st.session_state.datos_cargados = True
+                else:
+                    st.error(f"❌ Error creando DataFrame: {error_df}")
             else:
-                st.error(f"❌ Error creando DataFrame: {error_df}")
-        else:
-            st.error(f"❌ Error obteniendo datos: {error}")
+                st.error(f"❌ Error obteniendo datos: {error}")
+    placeholder.empty()
+
+# Forzar recarga si los datos se acaban de cargar
+if st.session_state.get('datos_cargados', False):
+    st.session_state.datos_cargados = False
+    st.rerun()
 
 # Estado de la conexión en sidebar
 with st.sidebar:
