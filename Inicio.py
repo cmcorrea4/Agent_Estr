@@ -353,11 +353,17 @@ else:
                             "answer": response["output"]
                         })
                         
-                        st.rerun()
+                        # Usar flag para rerun
+                        st.session_state.pregunta_procesada = True
                         
                     except Exception as e:
                         st.error(f"❌ Error al procesar la pregunta: {str(e)}")
                         st.info("💡 Intenta reformular tu pregunta o verifica la sintaxis.")
+            
+            # Forzar recarga después de procesar pregunta
+            if st.session_state.get('pregunta_procesada', False):
+                st.session_state.pregunta_procesada = False
+                st.rerun()
             
             # Mostrar historial de conversación
             if st.session_state.chat_history_energia:
