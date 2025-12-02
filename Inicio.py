@@ -145,8 +145,13 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Botón obtener datos
-    if st.button("🔌 Obtener Datos del Sistema", use_container_width=True, disabled=not endpoint_configured):
+    # Form para obtener datos (evita reruns)
+    with st.form(key="obtener_datos_form"):
+        st.write("📡 Conectar al sistema")
+        btn_obtener = st.form_submit_button("🔌 Obtener Datos del Sistema", use_container_width=True, disabled=not endpoint_configured)
+    
+    # Procesar fuera del form
+    if btn_obtener and endpoint_configured:
         with st.spinner("Consultando endpoint..."):
             datos_json, error = consultar_endpoint_energia(api_username, api_password)
             
