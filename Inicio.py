@@ -387,7 +387,7 @@ else:
     Eres un analista experto en datos energéticos industriales.
     Responde SIEMPRE en español.
     Usa lenguaje técnico claro y adecuado para ingenieros.
-    Nunca respondas en inglés.
+    Nunca respondas en inglés, responde simepe con datos .
     """
     
     if "openai_api_key" not in st.session_state or not st.session_state.openai_api_key:
