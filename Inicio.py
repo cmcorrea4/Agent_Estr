@@ -391,7 +391,12 @@ else:
             llm = ChatOpenAI(
                 model=model_name,
                 temperature=temperature,
-                openai_api_key=st.session_state.openai_api_key
+                openai_api_key=st.session_state.openai_api_key,
+                system_message=(
+                  "Eres un analista experto en datos energéticos industriales. "
+                  "Responde SIEMPRE en español, usando un lenguaje técnico claro "
+                  "y adecuado para ingenieros."
+                )
             )
             
             # Crear el agente de pandas (sin especificar agent_type ya que usa el predeterminado)
