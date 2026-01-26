@@ -382,6 +382,13 @@ else:
     
     # Agente de Análisis IA
     st.header("🤖 Agente de Análisis IA")
+
+    system_prompt = """
+    Eres un analista experto en datos energéticos industriales.
+    Responde SIEMPRE en español.
+    Usa lenguaje técnico claro y adecuado para ingenieros.
+    Nunca respondas en inglés.
+    """
     
     if "openai_api_key" not in st.session_state or not st.session_state.openai_api_key:
         st.warning("⚠️ Configura tu API Key de OpenAI en la barra lateral para usar el agente inteligente.")
@@ -391,12 +398,7 @@ else:
             llm = ChatOpenAI(
                 model=model_name,
                 temperature=temperature,
-                openai_api_key=st.session_state.openai_api_key,
-                system_message=(
-                  "Eres un analista experto en datos energéticos industriales. "
-                  "Responde SIEMPRE en español, usando un lenguaje técnico claro "
-                  "y adecuado para ingenieros."
-                )
+                openai_api_key=st.session_state.openai_api_key
             )
             
             # Crear el agente de pandas (sin especificar agent_type ya que usa el predeterminado)
@@ -404,7 +406,8 @@ else:
                 llm,
                 df_energia,
                 verbose=True,
-                allow_dangerous_code=True
+                allow_dangerous_code=True,
+                prefix=system_prompt
             )
             
             st.success("🎯 Agente IA inicializado correctamente")
