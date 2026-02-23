@@ -255,7 +255,7 @@ with st.sidebar:
                 del os.environ["OPENAI_API_KEY"]
             st.rerun()
 
-    model_name = "gpt-4"
+    model_name = "gpt-4-turbo"
     temperature = 0.1
 
     st.markdown("---")
