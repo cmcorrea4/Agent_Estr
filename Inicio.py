@@ -237,7 +237,7 @@ with st.sidebar:
             st.rerun()
     
     # Configuración del modelo (fija, sin mostrar)
-    model_name = "GPT-4o mini"
+    model_name = "gpt-4o-mini-2024-07"
     temperature = 0.1
     
     st.markdown("---")
