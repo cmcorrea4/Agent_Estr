@@ -369,12 +369,18 @@ else:
             st.dataframe(numeric_df.describe(), use_container_width=True)
         else:
             st.info("No hay columnas numéricas para estadísticas descriptivas.")
-            st.write("**Resumen de columnas de texto:**")
-            text_df = df_energia.select_dtypes(include=['object'])
-            if not text_df.empty:
-                for col in text_df.columns:
+        
+        st.write("**Resumen de columnas de texto:**")
+        text_df = df_energia.select_dtypes(include=['object'])
+        if not text_df.empty:
+            for col in text_df.columns:
+                try:
                     unique_vals = df_energia[col].nunique()
                     st.write(f"• **{col}**: {unique_vals} valores únicos")
+                except TypeError:
+                    # Corrección: Manejo de tipos no hasheables (listas/diccionarios)
+                    unique_vals = df_energia[col].astype(str).nunique()
+                    st.write(f"• **{col}**: {unique_vals} valores únicos (datos anidados)")
     
     with tab4:
         st.subheader("Datos JSON Originales")
