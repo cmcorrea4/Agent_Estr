@@ -69,17 +69,24 @@ def consultar_endpoint_energia(username, password, date_start=None, date_end=Non
 
 # Función para convertir JSON a DataFrame
 def json_to_dataframe(json_data):
-    """Convierte los datos JSON del endpoint a un DataFrame de pandas"""
+    """Convierte los datos JSON del endpoint a un DataFrame de pandas aplanado"""
     try:
-        if isinstance(json_data, dict):
-            # Si es un diccionario, convertir a DataFrame con una fila
-            df = pd.DataFrame([json_data])
+        # 1. Caso ideal: El JSON tiene una llave 'data' que contiene la lista de registros
+        if isinstance(json_data, dict) and 'data' in json_data and isinstance(json_data['data'], list):
+            # json_normalize aplana automáticamente diccionarios anidados
+            df = pd.json_normalize(json_data['data'])
+            
+        # 2. Caso donde el JSON es directamente una lista de diccionarios
         elif isinstance(json_data, list):
-            # Si es una lista, convertir directamente
-            df = pd.DataFrame(json_data)
+            df = pd.json_normalize(json_data)
+            
+        # 3. Caso donde es un solo diccionario sin la llave 'data'
+        elif isinstance(json_data, dict):
+            df = pd.json_normalize([json_data])
+            
+        # 4. Otros formatos
         else:
-            # Si es otro tipo, intentar convertir
-            df = pd.DataFrame({'data': [json_data]})
+            df = pd.DataFrame({'datos': [json_data]})
         
         return df, None
     except Exception as e:
@@ -243,7 +250,7 @@ with st.sidebar:
     st.markdown("---")
     
     # Botón para obtener datos del endpoint
-    if st.button("🔌 Obtener Datos del Sistema", use_container_width=True, 
+    if st.button("🔌 Obtener Datos del Sistema", width="stretch", 
                  disabled=not (endpoint_configured and dates_valid)):
         with st.spinner("Consultando endpoint de energía..."):
             # Convertir fechas a formato string YYYY-MM-DD
@@ -326,6 +333,10 @@ else:
     
     st.success("✅ Datos del sistema energético cargados exitosamente")
     
+    # Mostrar el resumen que viene de la API si existe
+    if isinstance(datos_json, dict) and 'chatbotSummary' in datos_json:
+        st.info(datos_json['chatbotSummary'])
+    
     # Mostrar rango de fechas de los datos cargados
     if 'date_start' in st.session_state and 'date_end' in st.session_state:
         col1, col2, col3 = st.columns([2, 2, 1])
@@ -346,7 +357,7 @@ else:
     
     with tab1:
         st.subheader("Vista de los Datos")
-        st.dataframe(df_energia, use_container_width=True)
+        st.dataframe(df_energia, width="stretch")
     
     with tab2:
         st.subheader("Información del Dataset")
@@ -358,7 +369,7 @@ else:
                 'Nulos': df_energia.isnull().sum(),
                 '% Nulos': (df_energia.isnull().sum() / len(df_energia) * 100).round(2)
             })
-            st.dataframe(info_df, use_container_width=True)
+            st.dataframe(info_df, width="stretch")
         else:
             st.warning("DataFrame vacío")
     
@@ -366,7 +377,7 @@ else:
         st.subheader("Estadísticas Descriptivas")
         numeric_df = df_energia.select_dtypes(include=['number'])
         if not numeric_df.empty:
-            st.dataframe(numeric_df.describe(), use_container_width=True)
+            st.dataframe(numeric_df.describe(), width="stretch")
         else:
             st.info("No hay columnas numéricas para estadísticas descriptivas.")
         
@@ -378,7 +389,6 @@ else:
                     unique_vals = df_energia[col].nunique()
                     st.write(f"• **{col}**: {unique_vals} valores únicos")
                 except TypeError:
-                    # Corrección: Manejo de tipos no hasheables (listas/diccionarios)
                     unique_vals = df_energia[col].astype(str).nunique()
                     st.write(f"• **{col}**: {unique_vals} valores únicos (datos anidados)")
     
@@ -407,7 +417,7 @@ else:
                 openai_api_key=st.session_state.openai_api_key
             )
             
-            # Crear el agente de pandas (sin especificar agent_type ya que usa el predeterminado)
+            # Crear el agente de pandas
             agent = create_pandas_dataframe_agent(
                 llm,
                 df_energia,
@@ -428,7 +438,6 @@ else:
                 "¿Cuál Molde tiene mayor SECn?",
                 "¿Qué periodo cubren los datos (fechas)?",
                 "Cuáles son los mayores porcentaje de tiempo de paro y a que referencias corresponden?"
-                
             ]
             
             for i, example in enumerate(examples, 1):
@@ -498,7 +507,7 @@ else:
     
     # Botón para actualizar datos
     st.markdown("---")
-    if st.button("🔄 Actualizar Datos del Sistema", use_container_width=True):
+    if st.button("🔄 Actualizar Datos del Sistema", width="stretch"):
         # Limpiar cache y session state
         consultar_endpoint_energia.clear()
         if "df_energia" in st.session_state:
